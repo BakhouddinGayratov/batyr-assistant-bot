@@ -42,6 +42,15 @@ TIME_OF_DAY_ENERGY = [
     (22, 24, "Hozir kech tun — juda tinch, qisqa va xotirjam ohangda gapir."),
 ]
 
+NATURAL_UZBEK_GUIDE = (
+    "Tilga e'tibor: agar til o'zbek bo'lsa, faqat tabiiy, jonli, kundalik so'zlashuv "
+    "o'zbek tilida yoz — Toshkentda odamlar gaplashadigan uslubda. Inglizcha/ruschadan "
+    "so'zma-so'z tarjima qilingandek qattiq, kitobiy yoki noqulay jumlalar yozma. "
+    "Murakkab, uzun yoki rasman-kitobiy so'zlar o'rniga oddiy va tabiiy so'zlarni tanla. "
+    "Misol: 'Men sizga yordam berishdan mamnunman' EMAS, balki 'Mayli, yordam beraman' kabi yoz. "
+    "Misol: 'Ushbu vazifa muvaffaqiyatli bajarildi' EMAS, balki 'Bo'ldi, qildim' kabi yoz."
+)
+
 FACT_EXTRACTION_PROMPT = (
     "Quyidagi xabarda foydalanuvchi haqida uzoq muddatli eslab qolishga arzigulik "
     "shaxsiy ma'lumot bo'lsa (ism, kasbi, qiziqishlari, odatlari, afzal ko'rishlari va h.k.), "
@@ -100,7 +109,8 @@ class AssistantClient:
             f"Sening isming {name}. Sen foydalanuvchining shaxsiy yordamchisisan (Telegram bot orqali). "
             f"Foydalanuvchi bilan {language} tilida, {tone} ohangda gaplash. {verbosity} {emoji} {energy} "
             "Agar foydalanuvchi biror vazifa, eslatma yoki rejani aytsa, buni qayd etganingni "
-            "tabiiy tilda tasdiqla (masalan: 'Yozib qoldim!')."
+            "tabiiy tilda tasdiqla (masalan: 'Yozib qoldim!'). "
+            f"{NATURAL_UZBEK_GUIDE}"
         )
 
         if nickname:
