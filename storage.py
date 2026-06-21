@@ -62,6 +62,16 @@ def init_db():
             )
             """
         )
+        conn.execute(
+            """
+            CREATE TABLE IF NOT EXISTS corrections (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                chat_id INTEGER NOT NULL,
+                correction TEXT NOT NULL,
+                created_at TEXT DEFAULT CURRENT_TIMESTAMP
+            )
+            """
+        )
 
 
 def add_message(chat_id: int, role: str, content: str):
@@ -146,3 +156,25 @@ def get_facts(chat_id: int, limit: int = 30) -> list[str]:
 def clear_facts(chat_id: int):
     with get_conn() as conn:
         conn.execute("DELETE FROM facts WHERE chat_id = ?", (chat_id,))
+
+
+def add_correction(chat_id: int, correction: str):
+    with get_conn() as conn:
+        conn.execute(
+            "INSERT INTO corrections (chat_id, correction) VALUES (?, ?)",
+            (chat_id, correction),
+        )
+
+
+def get_corrections(chat_id: int, limit: int = 30) -> list[str]:
+    with get_conn() as conn:
+        rows = conn.execute(
+            "SELECT correction FROM corrections WHERE chat_id = ? ORDER BY id DESC LIMIT ?",
+            (chat_id, limit),
+        ).fetchall()
+    return [r[0] for r in rows]
+
+
+def clear_corrections(chat_id: int):
+    with get_conn() as conn:
+        conn.execute("DELETE FROM corrections WHERE chat_id = ?", (chat_id,))

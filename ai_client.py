@@ -88,7 +88,12 @@ class AssistantClient:
             data = resp.json()
         return data["choices"][0]["message"]["content"]
 
-    def build_system_prompt(self, settings: dict[str, str] | None = None, facts: list[str] | None = None) -> str:
+    def build_system_prompt(
+        self,
+        settings: dict[str, str] | None = None,
+        facts: list[str] | None = None,
+        corrections: list[str] | None = None,
+    ) -> str:
         settings = settings or {}
         name = settings.get("name", DEFAULT_NAME)
         tone = TONE_DESCRIPTIONS.get(settings.get("tone", DEFAULT_TONE), TONE_DESCRIPTIONS[DEFAULT_TONE])
@@ -116,6 +121,13 @@ class AssistantClient:
         if nickname:
             prompt += f" Foydalanuvchini '{nickname}' deb chaqir."
 
+        if corrections:
+            corrections_text = "\n".join(f"- {c}" for c in corrections)
+            prompt += (
+                "\n\nMUHIM: foydalanuvchi avval quyidagi xatolarni ko'rsatib tuzatgan. "
+                f"Bularni HECH QACHON takrorlama:\n{corrections_text}"
+            )
+
         if facts:
             facts_text = "\n".join(f"- {f}" for f in facts)
             prompt += f"\n\nFoydalanuvchi haqida bilganlaring:\n{facts_text}"
@@ -128,8 +140,9 @@ class AssistantClient:
         user_message: str,
         settings: dict[str, str] | None = None,
         facts: list[str] | None = None,
+        corrections: list[str] | None = None,
     ) -> str:
-        system_prompt = self.build_system_prompt(settings, facts)
+        system_prompt = self.build_system_prompt(settings, facts, corrections)
         messages = [{"role": role, "content": content} for role, content in history]
         messages.append({"role": "user", "content": user_message})
         return await self._complete(system_prompt, messages)

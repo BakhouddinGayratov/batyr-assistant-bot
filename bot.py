@@ -28,6 +28,8 @@ BOT_COMMANDS = [
     BotCommand("plan", "Ertaga/kelajak uchun vazifa(lar) qo'shish"),
     BotCommand("settings", "Yordamchini sozlash (ism, ohang, til)"),
     BotCommand("forget", "Men haqimda eslab qolgan ma'lumotlarni o'chirish"),
+    BotCommand("correct", "Xatosini ko'rsatish, bot uni qaytarmaydi"),
+    BotCommand("corrections", "Tuzatilgan xatolar ro'yxati"),
 ]
 
 VALID_TONES = {"samimiy", "rasmiy", "hazil"}
@@ -59,7 +61,8 @@ HELP_TEXT = (
     "🌤 Har kuni ertalab ob-havo, namaz vaqtlari va vazifalar bilan digest yuboraman\n"
     "🕋 Har soat namaz/nafl vaqtlari haqida eslatib turaman\n"
     "⚙️ /settings — meni o'zingizga moslab sozlash (ism, ohang, til)\n"
-    "🧠 Suhbat davomida sizning haqingizda muhim narsalarni eslab qolaman"
+    "🧠 Suhbat davomida sizning haqingizda muhim narsalarni eslab qolaman\n"
+    "🛠 /correct <xato va to'g'risi> — xatomni ko'rsating, qaytarmayman"
 )
 
 MENU_KEYBOARD = InlineKeyboardMarkup(
@@ -190,6 +193,29 @@ async def forget_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
     await update.message.reply_text("Siz haqingizda eslab qolgan ma'lumotlarni o'chirdim.")
 
 
+async def correct_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    chat_id = update.effective_chat.id
+    text = " ".join(context.args).strip()
+    if not text:
+        await update.message.reply_text(
+            "Foydalanish: /correct <nima xato edi va o'rniga nima qilishim kerak>\n"
+            "Masalan: /correct \"rasmiy gapirma\" demang, har doim samimiy va sodda gapir"
+        )
+        return
+    storage.add_correction(chat_id, text)
+    await update.message.reply_text("Tuzatdim, bundan keyin shunga amal qilaman.")
+
+
+async def corrections_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    chat_id = update.effective_chat.id
+    corrections = storage.get_corrections(chat_id)
+    if not corrections:
+        await update.message.reply_text("Hozircha tuzatilgan xatolar yo'q.")
+        return
+    lines = [f"- {c}" for c in corrections]
+    await update.message.reply_text("Tuzatilgan xatolar:\n" + "\n".join(lines))
+
+
 async def _store_tasks_from_text(
     claude: AssistantClient, chat_id: int, text: str, default_due_date: str | None = None
 ) -> list[dict]:
@@ -226,8 +252,11 @@ async def process_user_text(claude: AssistantClient, chat_id: int, user_text: st
 
     settings = storage.get_settings(chat_id)
     facts = storage.get_facts(chat_id)
+    corrections = storage.get_corrections(chat_id)
     history = storage.get_recent_messages(chat_id, limit=12)
-    reply = await claude.chat_reply(history[:-1], user_text, settings=settings, facts=facts)
+    reply = await claude.chat_reply(
+        history[:-1], user_text, settings=settings, facts=facts, corrections=corrections
+    )
 
     storage.add_message(chat_id, "assistant", reply)
     return reply
@@ -301,6 +330,8 @@ def build_application(token: str, claude: AssistantClient) -> Application:
     application.add_handler(CommandHandler("plan", plan_command))
     application.add_handler(CommandHandler("settings", settings_command))
     application.add_handler(CommandHandler("forget", forget_command))
+    application.add_handler(CommandHandler("correct", correct_command))
+    application.add_handler(CommandHandler("corrections", corrections_command))
     application.add_handler(CallbackQueryHandler(menu_callback, pattern=r"^menu:"))
     application.add_handler(MessageHandler(filters.PHOTO, handle_photo))
     application.add_handler(MessageHandler(filters.VOICE | filters.AUDIO, handle_voice))
