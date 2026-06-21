@@ -45,17 +45,6 @@ def init_db():
     with get_conn(write=True) as conn:
         conn.execute(
             """
-            CREATE TABLE IF NOT EXISTS messages (
-                id INTEGER PRIMARY KEY AUTOINCREMENT,
-                chat_id INTEGER NOT NULL,
-                role TEXT NOT NULL,
-                content TEXT NOT NULL,
-                created_at TEXT DEFAULT CURRENT_TIMESTAMP
-            )
-            """
-        )
-        conn.execute(
-            """
             CREATE TABLE IF NOT EXISTS tasks (
                 id INTEGER PRIMARY KEY AUTOINCREMENT,
                 chat_id INTEGER NOT NULL,
@@ -101,23 +90,6 @@ def init_db():
             )
             """
         )
-
-
-def add_message(chat_id: int, role: str, content: str):
-    with get_conn(write=True) as conn:
-        conn.execute(
-            "INSERT INTO messages (chat_id, role, content) VALUES (?, ?, ?)",
-            (chat_id, role, content),
-        )
-
-
-def get_recent_messages(chat_id: int, limit: int = 12):
-    with get_conn() as conn:
-        rows = conn.execute(
-            "SELECT role, content FROM messages WHERE chat_id = ? ORDER BY id DESC LIMIT ?",
-            (chat_id, limit),
-        ).fetchall()
-    return list(reversed(rows))
 
 
 def add_task(chat_id: int, description: str, due_at: str | None):

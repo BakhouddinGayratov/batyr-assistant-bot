@@ -350,9 +350,9 @@ async def plan_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
     await update.message.reply_text("\n\n".join(parts))
 
 
-async def process_user_text(claude: AssistantClient, chat_id: int, user_text: str) -> str:
-    storage.add_message(chat_id, "user", user_text)
-
+async def process_user_text(
+    claude: AssistantClient, chat_id: int, user_text: str, history: list[tuple[str, str]]
+) -> str:
     _, rejected = await _store_tasks_from_text(claude, chat_id, user_text)
 
     fact = await claude.extract_fact(user_text)
@@ -362,15 +362,16 @@ async def process_user_text(claude: AssistantClient, chat_id: int, user_text: st
     settings = storage.get_settings(chat_id)
     facts = storage.get_facts(chat_id)
     corrections = storage.get_corrections(chat_id)
-    history = storage.get_recent_messages(chat_id, limit=12)
     reply = await claude.chat_reply(
-        history[:-1], user_text, settings=settings, facts=facts, corrections=corrections
+        history, user_text, settings=settings, facts=facts, corrections=corrections
     )
 
     if rejected:
         reply = _rejected_tasks_note(rejected) + "\n\n" + reply
 
-    storage.add_message(chat_id, "assistant", reply)
+    history.append(("user", user_text))
+    history.append(("assistant", reply))
+    del history[:-12]
     return reply
 
 
@@ -399,7 +400,8 @@ async def handle_message(update: Update, context: ContextTypes.DEFAULT_TYPE):
         await update.message.reply_text("\n\n".join(parts))
         return
 
-    reply = await process_user_text(claude, chat_id, update.message.text)
+    history = context.application.bot_data.setdefault("chat_history", {}).setdefault(chat_id, [])
+    reply = await process_user_text(claude, chat_id, update.message.text, history)
     await update.message.reply_text(reply)
 
 
@@ -412,7 +414,8 @@ async def handle_voice(update: Update, context: ContextTypes.DEFAULT_TYPE):
     voice_bytes = await file.download_as_bytearray()
 
     transcript = await claude.transcribe_audio(voice_bytes)
-    reply = await process_user_text(claude, chat_id, transcript)
+    history = context.application.bot_data.setdefault("chat_history", {}).setdefault(chat_id, [])
+    reply = await process_user_text(claude, chat_id, transcript, history)
     await update.message.reply_text(f"🎙 {transcript}\n\n{reply}")
 
 
@@ -428,9 +431,6 @@ async def handle_photo(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
     settings = storage.get_settings(chat_id)
     reply = await claude.describe_image(image_base64, caption, settings=settings)
-
-    storage.add_message(chat_id, "user", caption or "[rasm yubordi]")
-    storage.add_message(chat_id, "assistant", reply)
     await update.message.reply_text(reply)
 
 
