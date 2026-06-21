@@ -9,6 +9,14 @@ DB_DIR = Path(os.environ.get("DATA_DIR", Path(__file__).parent))
 DB_PATH = DB_DIR / "assistant.db"
 LOCAL_TZ = ZoneInfo(os.environ.get("TIMEZONE", "Asia/Tashkent"))
 
+TURSO_URL = os.environ.get("TURSO_DATABASE_URL")
+TURSO_AUTH_TOKEN = os.environ.get("TURSO_AUTH_TOKEN")
+
+if TURSO_URL:
+    import libsql_experimental as libsql
+
+_synced_once = False
+
 
 def _now_local() -> str:
     return datetime.now(LOCAL_TZ).strftime("%Y-%m-%d %H:%M:%S")
@@ -16,10 +24,19 @@ def _now_local() -> str:
 
 @contextmanager
 def get_conn():
-    conn = sqlite3.connect(DB_PATH)
+    global _synced_once
+    if TURSO_URL:
+        conn = libsql.connect(str(DB_PATH), sync_url=TURSO_URL, auth_token=TURSO_AUTH_TOKEN)
+        if not _synced_once:
+            conn.sync()
+            _synced_once = True
+    else:
+        conn = sqlite3.connect(DB_PATH)
     try:
         yield conn
         conn.commit()
+        if TURSO_URL:
+            conn.sync()
     finally:
         conn.close()
 
@@ -52,7 +69,7 @@ def init_db():
         )
         try:
             conn.execute("ALTER TABLE tasks ADD COLUMN completed_at TEXT")
-        except sqlite3.OperationalError:
+        except Exception:
             pass
         conn.execute(
             """

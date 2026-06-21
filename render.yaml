@@ -12,6 +12,10 @@ services:
         sync: false
       - key: OWNER_CHAT_ID
         sync: false
+      - key: TURSO_DATABASE_URL
+        sync: false
+      - key: TURSO_AUTH_TOKEN
+        sync: false
       - key: TIMEZONE
         value: Asia/Tashkent
       - key: LATITUDE

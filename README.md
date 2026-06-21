@@ -18,9 +18,19 @@ Deferred to v2: Google Calendar sync, group-chat tracking.
 2. Sign in (free, no credit card required), create an API key, copy it.
 3. Groq's free tier has rate limits but no cost — fine for a personal assistant bot.
 
-## 3. Configure
+## 3. Get a free persistent database (Turso)
+Render's free tier wipes the local filesystem on every deploy/restart, so the SQLite file alone won't survive. Turso gives a free, no-card-required cloud SQLite database that the bot syncs to.
+1. Go to https://turso.tech, sign up (free, no credit card).
+2. Install the Turso CLI or use the dashboard to create a database, e.g. `turso db create batyr-bot`.
+3. Get the URL: `turso db show batyr-bot --url` (looks like `libsql://batyr-bot-yourname.turso.io`).
+4. Get a token: `turso db tokens create batyr-bot`.
+5. Put both into `.env` as `TURSO_DATABASE_URL` and `TURSO_AUTH_TOKEN` (and into Render's environment variables when deploying).
+
+If you skip this, the bot still works locally using a plain local SQLite file — only needed for persistence on Render.
+
+## 4. Configure
 1. Copy `.env.example` to `.env`.
-2. Fill in `TELEGRAM_BOT_TOKEN` and `GROQ_API_KEY`.
+2. Fill in `TELEGRAM_BOT_TOKEN`, `GROQ_API_KEY`, `TURSO_DATABASE_URL`, `TURSO_AUTH_TOKEN`.
 3. Leave `OWNER_CHAT_ID` blank for now.
 
 ## 4. Run locally
