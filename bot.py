@@ -74,6 +74,29 @@ MENU_KEYBOARD = InlineKeyboardMarkup(
 )
 
 
+def format_tasks_grouped(tasks: list[tuple]) -> str:
+    today = date.today().isoformat()
+    tomorrow = (date.today() + timedelta(days=1)).isoformat()
+
+    groups: dict[str, list[str]] = {"Bugun": [], "Ertaga": [], "Kelajakda": [], "Sanasiz": []}
+    for tid, desc, due in tasks:
+        line = f"#{tid}: {desc}"
+        if not due:
+            groups["Sanasiz"].append(line)
+        elif due.startswith(today):
+            groups["Bugun"].append(line)
+        elif due.startswith(tomorrow):
+            groups["Ertaga"].append(line)
+        else:
+            groups["Kelajakda"].append(f"{line} ({due})")
+
+    sections = []
+    for label, lines in groups.items():
+        if lines:
+            sections.append(f"📌 {label}:\n" + "\n".join(lines))
+    return "\n\n".join(sections)
+
+
 async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
     chat_id = update.effective_chat.id
     await update.message.reply_text(
@@ -100,8 +123,7 @@ async def menu_callback(update: Update, context: ContextTypes.DEFAULT_TYPE):
         if not tasks:
             await query.message.reply_text("Ochiq vazifalar yo'q.")
         else:
-            lines = [f"#{tid}: {desc}" + (f" ({due})" if due else "") for tid, desc, due in tasks]
-            await query.message.reply_text("\n".join(lines))
+            await query.message.reply_text(format_tasks_grouped(tasks))
     elif query.data == "menu:rate":
         await query.message.reply_text("Yozing: /rate USD UZS (yoki boshqa valyuta kodlari)")
     elif query.data == "menu:help":
@@ -114,8 +136,7 @@ async def list_tasks(update: Update, context: ContextTypes.DEFAULT_TYPE):
     if not tasks:
         await update.message.reply_text("Ochiq vazifalar yo'q.")
         return
-    lines = [f"#{tid}: {desc}" + (f" ({due})" if due else "") for tid, desc, due in tasks]
-    await update.message.reply_text("\n".join(lines))
+    await update.message.reply_text(format_tasks_grouped(tasks))
 
 
 async def done_task(update: Update, context: ContextTypes.DEFAULT_TYPE):
