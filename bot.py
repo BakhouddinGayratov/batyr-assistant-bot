@@ -24,6 +24,7 @@ BOT_COMMANDS = [
     BotCommand("menu", "Asosiy menyu"),
     BotCommand("tasks", "Ochiq vazifalarni ko'rish"),
     BotCommand("done", "Vazifani bajarildi deb belgilash"),
+    BotCommand("delete", "Vazifani butunlay o'chirish"),
     BotCommand("rate", "Valyuta kursini bilish"),
     BotCommand("plan", "Ertaga/kelajak uchun vazifa(lar) qo'shish"),
     BotCommand("settings", "Yordamchini sozlash (ism, ohang, til)"),
@@ -53,6 +54,7 @@ HELP_TEXT = (
     "📝 \"eslab qol: ertaga 14:00 trening\" kabi yozing — vazifa sifatida saqlayman\n"
     "📋 /tasks — ochiq vazifalarni ko'rish\n"
     "✅ /done <raqam> — vazifani bajarildi deb belgilash\n"
+    "🗑 /delete <raqam> — vazifani butunlay o'chirish\n"
     "💱 /rate USD UZS — valyuta kursi\n"
     "🎯 /plan <matn> — ertaga/kelajak uchun vazifa(lar) qo'shish\n"
     "🌅 Har kuni quyosh botganda ertangi/kelajakdagi ishlar haqida so'rayman\n"
@@ -150,6 +152,17 @@ async def done_task(update: Update, context: ContextTypes.DEFAULT_TYPE):
     await update.message.reply_text(f"#{task_id} bajarildi deb belgilandi.")
 
 
+async def delete_task_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    chat_id = update.effective_chat.id
+    args = context.args
+    if not args or not args[0].isdigit():
+        await update.message.reply_text("Foydalanish: /delete <raqam>, masalan /delete 3")
+        return
+    task_id = int(args[0])
+    storage.delete_task(chat_id, task_id)
+    await update.message.reply_text(f"#{task_id} o'chirildi.")
+
+
 async def rate_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
     args = context.args
     if len(args) != 2:
@@ -239,11 +252,27 @@ async def corrections_command(update: Update, context: ContextTypes.DEFAULT_TYPE
 
 async def _store_tasks_from_text(
     claude: AssistantClient, chat_id: int, text: str, default_due_date: str | None = None
-) -> list[dict]:
+) -> tuple[list[dict], list[dict]]:
     tasks = await claude.extract_tasks(text, default_due_date=default_due_date)
+    today_str = date.today().isoformat()
+    stored, rejected = [], []
     for task in tasks:
-        storage.add_task(chat_id, task["description"], task.get("due_at"))
-    return tasks
+        due = task.get("due_at")
+        due_date = due[:10] if due else None
+        if due_date and due_date < today_str:
+            rejected.append(task)
+        else:
+            storage.add_task(chat_id, task["description"], due)
+            stored.append(task)
+    return stored, rejected
+
+
+def _rejected_tasks_note(rejected: list[dict]) -> str:
+    lines = [f"- {t['description']} ({t.get('due_at')})" for t in rejected]
+    return (
+        "O'tmishdagi sanaga vazifa qo'sha olmayman, faqat bugun yoki kelajak uchun reja yozish mumkin:\n"
+        + "\n".join(lines)
+    )
 
 
 async def plan_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
@@ -254,18 +283,23 @@ async def plan_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
         await update.message.reply_text("Foydalanish: /plan <ertaga/kelajakda qilishingiz kerak bo'lgan ish(lar)>")
         return
     tomorrow = (date.today() + timedelta(days=1)).isoformat()
-    tasks = await _store_tasks_from_text(claude, chat_id, text, default_due_date=tomorrow)
-    if not tasks:
+    stored, rejected = await _store_tasks_from_text(claude, chat_id, text, default_due_date=tomorrow)
+    if not stored and not rejected:
         await update.message.reply_text("Vazifa aniqlay olmadim, boshqacha yozib ko'ring.")
         return
-    lines = [f"- {t['description']}" + (f" ({t.get('due_at')})" if t.get("due_at") else "") for t in tasks]
-    await update.message.reply_text("Saqladim:\n" + "\n".join(lines))
+    parts = []
+    if stored:
+        lines = [f"- {t['description']}" + (f" ({t.get('due_at')})" if t.get("due_at") else "") for t in stored]
+        parts.append("Saqladim:\n" + "\n".join(lines))
+    if rejected:
+        parts.append(_rejected_tasks_note(rejected))
+    await update.message.reply_text("\n\n".join(parts))
 
 
 async def process_user_text(claude: AssistantClient, chat_id: int, user_text: str) -> str:
     storage.add_message(chat_id, "user", user_text)
 
-    await _store_tasks_from_text(claude, chat_id, user_text)
+    _, rejected = await _store_tasks_from_text(claude, chat_id, user_text)
 
     fact = await claude.extract_fact(user_text)
     if fact:
@@ -279,6 +313,9 @@ async def process_user_text(claude: AssistantClient, chat_id: int, user_text: st
         history[:-1], user_text, settings=settings, facts=facts, corrections=corrections
     )
 
+    if rejected:
+        reply = _rejected_tasks_note(rejected) + "\n\n" + reply
+
     storage.add_message(chat_id, "assistant", reply)
     return reply
 
@@ -291,12 +328,21 @@ async def handle_message(update: Update, context: ContextTypes.DEFAULT_TYPE):
     if chat_id in awaiting_plan:
         awaiting_plan.discard(chat_id)
         tomorrow = (date.today() + timedelta(days=1)).isoformat()
-        tasks = await _store_tasks_from_text(claude, chat_id, update.message.text, default_due_date=tomorrow)
-        if not tasks:
+        stored, rejected = await _store_tasks_from_text(
+            claude, chat_id, update.message.text, default_due_date=tomorrow
+        )
+        if not stored and not rejected:
             await update.message.reply_text("Vazifa aniqlay olmadim, boshqacha yozib ko'ring.")
             return
-        lines = [f"- {t['description']}" + (f" ({t.get('due_at')})" if t.get("due_at") else "") for t in tasks]
-        await update.message.reply_text("Saqladim:\n" + "\n".join(lines))
+        parts = []
+        if stored:
+            lines = [
+                f"- {t['description']}" + (f" ({t.get('due_at')})" if t.get("due_at") else "") for t in stored
+            ]
+            parts.append("Saqladim:\n" + "\n".join(lines))
+        if rejected:
+            parts.append(_rejected_tasks_note(rejected))
+        await update.message.reply_text("\n\n".join(parts))
         return
 
     reply = await process_user_text(claude, chat_id, update.message.text)
@@ -347,6 +393,7 @@ def build_application(token: str, claude: AssistantClient) -> Application:
     application.add_handler(CommandHandler("menu", menu_command))
     application.add_handler(CommandHandler("tasks", list_tasks))
     application.add_handler(CommandHandler("done", done_task))
+    application.add_handler(CommandHandler("delete", delete_task_command))
     application.add_handler(CommandHandler("rate", rate_command))
     application.add_handler(CommandHandler("plan", plan_command))
     application.add_handler(CommandHandler("settings", settings_command))

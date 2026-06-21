@@ -116,6 +116,14 @@ def complete_task(chat_id: int, task_id: int):
         )
 
 
+def delete_task(chat_id: int, task_id: int):
+    with get_conn() as conn:
+        conn.execute(
+            "DELETE FROM tasks WHERE chat_id = ? AND id = ?",
+            (chat_id, task_id),
+        )
+
+
 def set_setting(chat_id: int, key: str, value: str):
     with get_conn() as conn:
         conn.execute(
