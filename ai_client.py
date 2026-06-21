@@ -27,6 +27,21 @@ VERBOSITY_DESCRIPTIONS = {
     "batafsil": "Kerak bo'lganda batafsil va tushuntirib yoz.",
 }
 
+EMOJI_DESCRIPTIONS = {
+    "yoq": "Javoblarda emoji ishlatma.",
+    "oz": "Javoblarda kamdan-kam, faqat o'rinli bo'lganda bitta emoji ishlat.",
+    "kop": "Javoblarda his-tuyg'ularni ifodalash uchun emojilardan erkin foydalan.",
+}
+DEFAULT_EMOJI = "oz"
+
+TIME_OF_DAY_ENERGY = [
+    (0, 5, "Hozir kech tun — juda tinch, qisqa va xotirjam ohangda gapir."),
+    (5, 11, "Hozir ertalab — energik va ruhlantiruvchi ohangda gapir."),
+    (11, 17, "Hozir kunduzi — ishchan va samarali ohangda gapir."),
+    (17, 22, "Hozir kechqurun — iliq va xotirjam ohangda gapir."),
+    (22, 24, "Hozir kech tun — juda tinch, qisqa va xotirjam ohangda gapir."),
+]
+
 FACT_EXTRACTION_PROMPT = (
     "Quyidagi xabarda foydalanuvchi haqida uzoq muddatli eslab qolishga arzigulik "
     "shaxsiy ma'lumot bo'lsa (ism, kasbi, qiziqishlari, odatlari, afzal ko'rishlari va h.k.), "
@@ -71,14 +86,25 @@ class AssistantClient:
         verbosity = VERBOSITY_DESCRIPTIONS.get(
             settings.get("verbosity", DEFAULT_VERBOSITY), VERBOSITY_DESCRIPTIONS[DEFAULT_VERBOSITY]
         )
+        emoji = EMOJI_DESCRIPTIONS.get(settings.get("emoji", DEFAULT_EMOJI), EMOJI_DESCRIPTIONS[DEFAULT_EMOJI])
         language = settings.get("language", DEFAULT_LANGUAGE)
+        nickname = settings.get("nickname")
+
+        hour = datetime.now(self.timezone).hour
+        energy = next(
+            (e for start, end, e in TIME_OF_DAY_ENERGY if start <= hour < end),
+            TIME_OF_DAY_ENERGY[0][2],
+        )
 
         prompt = (
             f"Sening isming {name}. Sen foydalanuvchining shaxsiy yordamchisisan (Telegram bot orqali). "
-            f"Foydalanuvchi bilan {language} tilida, {tone} ohangda gaplash. {verbosity} "
+            f"Foydalanuvchi bilan {language} tilida, {tone} ohangda gaplash. {verbosity} {emoji} {energy} "
             "Agar foydalanuvchi biror vazifa, eslatma yoki rejani aytsa, buni qayd etganingni "
             "tabiiy tilda tasdiqla (masalan: 'Yozib qoldim!')."
         )
+
+        if nickname:
+            prompt += f" Foydalanuvchini '{nickname}' deb chaqir."
 
         if facts:
             facts_text = "\n".join(f"- {f}" for f in facts)

@@ -32,12 +32,15 @@ BOT_COMMANDS = [
 
 VALID_TONES = {"samimiy", "rasmiy", "hazil"}
 VALID_VERBOSITY = {"qisqa", "batafsil"}
+VALID_EMOJI = {"yoq", "oz", "kop"}
 
 SETTINGS_HELP = (
     "Sozlamalar:\n"
     "/settings name <ism> — yordamchi ismini o'zgartirish\n"
     "/settings tone samimiy|rasmiy|hazil — gaplashish ohangi\n"
     "/settings verbosity qisqa|batafsil — javoblar uzunligi\n"
+    "/settings emoji yoq|oz|kop — emoji ishlatish darajasi\n"
+    "/settings nickname <laqab> — sizni qanday chaqirishini belgilash\n"
     "/settings language <til> — masalan: o'zbek, rus, ingliz\n"
     "/settings show — hozirgi sozlamalarni ko'rish"
 )
@@ -149,6 +152,8 @@ async def settings_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
             f"Ism: {settings.get('name', 'Jarvis')}",
             f"Ohang: {settings.get('tone', 'samimiy')}",
             f"Javob uzunligi: {settings.get('verbosity', 'qisqa')}",
+            f"Emoji: {settings.get('emoji', 'oz')}",
+            f"Laqabingiz: {settings.get('nickname', 'belgilanmagan')}",
             f"Til: {settings.get('language', default_language)}",
         ]
         await update.message.reply_text("Hozirgi sozlamalar:\n" + "\n".join(lines) + "\n\n" + SETTINGS_HELP)
@@ -166,6 +171,12 @@ async def settings_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
     elif key == "verbosity" and value.lower() in VALID_VERBOSITY:
         storage.set_setting(chat_id, "verbosity", value.lower())
         await update.message.reply_text(f"Javob uzunligini {value} qilib o'zgartirdim.")
+    elif key == "emoji" and value.lower() in VALID_EMOJI:
+        storage.set_setting(chat_id, "emoji", value.lower())
+        await update.message.reply_text(f"Emoji darajasini {value} qilib o'zgartirdim.")
+    elif key == "nickname" and value:
+        storage.set_setting(chat_id, "nickname", value)
+        await update.message.reply_text(f"Endi sizni '{value}' deb chaqiraman.")
     elif key == "language" and value:
         storage.set_setting(chat_id, "language", value)
         await update.message.reply_text(f"Tilni {value} qilib o'zgartirdim.")
