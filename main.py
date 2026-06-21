@@ -33,6 +33,8 @@ def main():
 
     claude = AssistantClient(timezone=timezone)
     application = build_application(token, claude)
+    application.bot_data["latitude"] = latitude
+    application.bot_data["longitude"] = longitude
 
     if owner_chat_id:
         start_scheduler(

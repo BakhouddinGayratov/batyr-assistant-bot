@@ -16,6 +16,7 @@ from telegram.ext import (
 import storage
 from ai_client import AssistantClient
 from currency import get_rate
+from prayer import format_prayer_times, get_prayer_times
 
 logger = logging.getLogger(__name__)
 
@@ -27,6 +28,7 @@ BOT_COMMANDS = [
     BotCommand("done", "Vazifani bajarildi deb belgilash"),
     BotCommand("delete", "Vazifani butunlay o'chirish"),
     BotCommand("stats", "Bugun/hafta/oy bo'yicha statistikani ko'rish"),
+    BotCommand("namaz", "Bugungi namaz vaqtlarini ko'rish (hanafiy)"),
     BotCommand("rate", "Valyuta kursini bilish"),
     BotCommand("plan", "Ertaga/kelajak uchun vazifa(lar) qo'shish"),
     BotCommand("settings", "Yordamchini sozlash (ism, ohang, til)"),
@@ -58,6 +60,7 @@ HELP_TEXT = (
     "✅ /done <raqam> — vazifani bajarildi deb belgilash\n"
     "🗑 /delete <raqam> — vazifani butunlay o'chirish\n"
     "📊 /stats bugun|hafta|oy — bajarish statistikasini ko'rish\n"
+    "🕋 /namaz — bugungi namaz vaqtlarini ko'rish (hanafiy hisoblash)\n"
     "💱 /rate USD UZS — valyuta kursi\n"
     "🎯 /plan <matn> — ertaga/kelajak uchun vazifa(lar) qo'shish\n"
     "🌅 Har kuni quyosh botganda ertangi/kelajakdagi ishlar haqida so'rayman\n"
@@ -202,6 +205,16 @@ async def stats_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
         return
 
     await update.message.reply_text(text)
+
+
+async def namaz_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    latitude = context.application.bot_data["latitude"]
+    longitude = context.application.bot_data["longitude"]
+    try:
+        times = await get_prayer_times(latitude, longitude, date.today())
+        await update.message.reply_text(format_prayer_times(times) + "\n\n(Hisoblash: hanafiy maktab)")
+    except Exception:
+        await update.message.reply_text("Namaz vaqtlarini olib bo'lmadi, birozdan keyin urinib ko'ring.")
 
 
 async def rate_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
@@ -436,6 +449,7 @@ def build_application(token: str, claude: AssistantClient) -> Application:
     application.add_handler(CommandHandler("done", done_task))
     application.add_handler(CommandHandler("delete", delete_task_command))
     application.add_handler(CommandHandler("stats", stats_command))
+    application.add_handler(CommandHandler("namaz", namaz_command))
     application.add_handler(CommandHandler("rate", rate_command))
     application.add_handler(CommandHandler("plan", plan_command))
     application.add_handler(CommandHandler("settings", settings_command))
