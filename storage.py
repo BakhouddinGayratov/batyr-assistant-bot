@@ -23,7 +23,7 @@ def _now_local() -> str:
 
 
 @contextmanager
-def get_conn():
+def get_conn(write: bool = False):
     global _synced_once
     if TURSO_URL:
         conn = libsql.connect(str(DB_PATH), sync_url=TURSO_URL, auth_token=TURSO_AUTH_TOKEN)
@@ -35,14 +35,14 @@ def get_conn():
     try:
         yield conn
         conn.commit()
-        if TURSO_URL:
+        if TURSO_URL and write:
             conn.sync()
     finally:
         conn.close()
 
 
 def init_db():
-    with get_conn() as conn:
+    with get_conn(write=True) as conn:
         conn.execute(
             """
             CREATE TABLE IF NOT EXISTS messages (
@@ -104,7 +104,7 @@ def init_db():
 
 
 def add_message(chat_id: int, role: str, content: str):
-    with get_conn() as conn:
+    with get_conn(write=True) as conn:
         conn.execute(
             "INSERT INTO messages (chat_id, role, content) VALUES (?, ?, ?)",
             (chat_id, role, content),
@@ -121,7 +121,7 @@ def get_recent_messages(chat_id: int, limit: int = 12):
 
 
 def add_task(chat_id: int, description: str, due_at: str | None):
-    with get_conn() as conn:
+    with get_conn(write=True) as conn:
         conn.execute(
             "INSERT INTO tasks (chat_id, description, due_at) VALUES (?, ?, ?)",
             (chat_id, description, due_at),
@@ -138,7 +138,7 @@ def get_open_tasks(chat_id: int):
 
 
 def complete_task(chat_id: int, task_id: int):
-    with get_conn() as conn:
+    with get_conn(write=True) as conn:
         conn.execute(
             "UPDATE tasks SET done = 1, completed_at = ? WHERE chat_id = ? AND id = ?",
             (_now_local(), chat_id, task_id),
@@ -173,7 +173,7 @@ def count_planned_tasks_between(chat_id: int, start_date: str, end_date: str) ->
 
 
 def delete_task(chat_id: int, task_id: int):
-    with get_conn() as conn:
+    with get_conn(write=True) as conn:
         conn.execute(
             "DELETE FROM tasks WHERE chat_id = ? AND id = ?",
             (chat_id, task_id),
@@ -181,7 +181,7 @@ def delete_task(chat_id: int, task_id: int):
 
 
 def set_setting(chat_id: int, key: str, value: str):
-    with get_conn() as conn:
+    with get_conn(write=True) as conn:
         conn.execute(
             """
             INSERT INTO settings (chat_id, key, value) VALUES (?, ?, ?)
@@ -201,7 +201,7 @@ def get_settings(chat_id: int) -> dict[str, str]:
 
 
 def add_fact(chat_id: int, fact: str):
-    with get_conn() as conn:
+    with get_conn(write=True) as conn:
         conn.execute(
             "INSERT INTO facts (chat_id, fact) VALUES (?, ?)",
             (chat_id, fact),
@@ -218,12 +218,12 @@ def get_facts(chat_id: int, limit: int = 30) -> list[str]:
 
 
 def clear_facts(chat_id: int):
-    with get_conn() as conn:
+    with get_conn(write=True) as conn:
         conn.execute("DELETE FROM facts WHERE chat_id = ?", (chat_id,))
 
 
 def add_correction(chat_id: int, correction: str):
-    with get_conn() as conn:
+    with get_conn(write=True) as conn:
         conn.execute(
             "INSERT INTO corrections (chat_id, correction) VALUES (?, ?)",
             (chat_id, correction),
@@ -240,5 +240,5 @@ def get_corrections(chat_id: int, limit: int = 30) -> list[str]:
 
 
 def clear_corrections(chat_id: int):
-    with get_conn() as conn:
+    with get_conn(write=True) as conn:
         conn.execute("DELETE FROM corrections WHERE chat_id = ?", (chat_id,))
