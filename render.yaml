@@ -1,0 +1,28 @@
+services:
+  - type: web
+    name: batyr-assistant-bot
+    env: python
+    plan: free
+    buildCommand: "pip install -r requirements.txt"
+    startCommand: "python main.py"
+    envVars:
+      - key: TELEGRAM_BOT_TOKEN
+        sync: false
+      - key: GROQ_API_KEY
+        sync: false
+      - key: OWNER_CHAT_ID
+        sync: false
+      - key: TIMEZONE
+        value: Asia/Tashkent
+      - key: LATITUDE
+        value: "41.2995"
+      - key: LONGITUDE
+        value: "69.2401"
+      - key: DIGEST_HOUR
+        value: "9"
+      - key: DIGEST_MINUTE
+        value: "0"
+      - key: REMINDER_START_HOUR
+        value: "9"
+      - key: REMINDER_END_HOUR
+        value: "21"

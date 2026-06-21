@@ -1,0 +1,127 @@
+import json
+import os
+from datetime import datetime
+from zoneinfo import ZoneInfo
+
+import httpx
+
+GROQ_URL = "https://api.groq.com/openai/v1/chat/completions"
+GROQ_TRANSCRIBE_URL = "https://api.groq.com/openai/v1/audio/transcriptions"
+MODEL = "llama-3.3-70b-versatile"
+VISION_MODEL = "meta-llama/llama-4-scout-17b-16e-instruct"
+TRANSCRIBE_MODEL = "whisper-large-v3-turbo"
+
+SYSTEM_PROMPT = (
+    "Sen foydalanuvchining shaxsiy yordamchisisan (Telegram bot orqali). "
+    "Foydalanuvchi bilan o'zbek tilida, qisqa va do'stona ohangda gaplash. "
+    "Agar foydalanuvchi biror vazifa, eslatma yoki rejani aytsa, buni qayd etganingni "
+    "tabiiy tilda tasdiqla (masalan: 'Yozib qoldim!')."
+)
+
+TASK_EXTRACTION_PROMPT_TEMPLATE = (
+    "Bugungi sana va vaqt: {now}. Quyidagi xabarda foydalanuvchi bir yoki bir nechta "
+    "vazifa/eslatma/reja qoldirmoqchi bo'lsa (bugun, ertaga, biror kelajakdagi kun uchun), "
+    "buni JSON array formatda chiqar, har bir element: "
+    "{{\"description\": \"...\", \"due_at\": \"YYYY-MM-DD HH:MM yoki YYYY-MM-DD yoki null\"}}. "
+    "'ertaga', 'bugun', 'dushanba', 'keyingi hafta' kabi nisbiy vaqtlarni yuqoridagi bugungi "
+    "sanaga nisbatan aniq sanaga hisobla. {default_due_hint}"
+    "Agar bu shunchaki suhbat bo'lib, hech qanday vazifa bo'lmasa: []. "
+    "Faqat JSON array qaytar, boshqa hech narsa yozma."
+)
+
+
+class AssistantClient:
+    def __init__(self, timezone: str = "Asia/Tashkent"):
+        self.api_key = os.environ["GROQ_API_KEY"]
+        self.timezone = ZoneInfo(timezone)
+
+    async def _complete(self, system: str, messages: list[dict], max_tokens: int = 600, model: str = MODEL) -> str:
+        payload = {
+            "model": model,
+            "max_tokens": max_tokens,
+            "messages": [{"role": "system", "content": system}] + messages,
+        }
+        headers = {"Authorization": f"Bearer {self.api_key}"}
+        async with httpx.AsyncClient(timeout=30) as client:
+            resp = await client.post(GROQ_URL, json=payload, headers=headers)
+            resp.raise_for_status()
+            data = resp.json()
+        return data["choices"][0]["message"]["content"]
+
+    async def chat_reply(self, history: list[tuple[str, str]], user_message: str) -> str:
+        messages = [{"role": role, "content": content} for role, content in history]
+        messages.append({"role": "user", "content": user_message})
+        return await self._complete(SYSTEM_PROMPT, messages)
+
+    async def extract_tasks(self, user_message: str, default_due_date: str | None = None) -> list[dict]:
+        now = datetime.now(self.timezone).strftime("%Y-%m-%d %H:%M, %A")
+        default_due_hint = (
+            f"Agar foydalanuvchi aniq sana aytmagan bo'lsa, sukut bo'yicha {default_due_date} sanasini ishlat. "
+            if default_due_date
+            else ""
+        )
+        prompt = TASK_EXTRACTION_PROMPT_TEMPLATE.format(now=now, default_due_hint=default_due_hint)
+        raw = await self._complete(
+            prompt,
+            [{"role": "user", "content": user_message}],
+            max_tokens=500,
+        )
+        try:
+            tasks = json.loads(raw.strip())
+            return tasks if isinstance(tasks, list) else []
+        except json.JSONDecodeError:
+            return []
+
+    async def transcribe_audio(self, audio_bytes: bytes, filename: str = "voice.ogg") -> str:
+        headers = {"Authorization": f"Bearer {self.api_key}"}
+        files = {"file": (filename, bytes(audio_bytes), "audio/ogg")}
+        data = {"model": TRANSCRIBE_MODEL}
+        async with httpx.AsyncClient(timeout=30) as client:
+            resp = await client.post(GROQ_TRANSCRIBE_URL, headers=headers, files=files, data=data)
+            resp.raise_for_status()
+        return resp.json()["text"]
+
+    async def describe_image(self, image_base64: str, caption: str) -> str:
+        text = caption or (
+            "Bu rasmda nima bor? O'zbek tilida tushuntir. "
+            "Agar rasmda matn, raqamlar yoki yozuv bo'lsa (hujjat, kvitansiya, jadval va h.k.), "
+            "ularni so'zma-so'z, aniq o'qib ber."
+        )
+        messages = [
+            {
+                "role": "user",
+                "content": [
+                    {"type": "text", "text": text},
+                    {"type": "image_url", "image_url": {"url": f"data:image/jpeg;base64,{image_base64}"}},
+                ],
+            }
+        ]
+        return await self._complete(SYSTEM_PROMPT, messages, max_tokens=600, model=VISION_MODEL)
+
+    async def compose_reminder(self, tasks: list[str]) -> str:
+        tasks_text = "\n".join(f"- {t}" for t in tasks) if tasks else "Yo'q."
+        prompt = (
+            f"Foydalanuvchining ochiq vazifalari:\n{tasks_text}\n\n"
+            "O'zbek tilida, juda qisqa (1-2 gap), do'stona va motivatsion eslatma yoz. "
+            "Eng yaqin/muhim vazifalarni qisqacha eslat va harakatga undash."
+        )
+        return await self._complete(SYSTEM_PROMPT, [{"role": "user", "content": prompt}], max_tokens=200)
+
+    async def compose_digest(self, weather_summary: str, tasks: list[str]) -> str:
+        tasks_text = "\n".join(f"- {t}" for t in tasks) if tasks else "Hozircha vazifalar yo'q."
+        prompt = (
+            f"Ertalabki digest tayyorla. Ob-havo: {weather_summary}\n"
+            f"Ochiq vazifalar (bugungi va kelajakdagi):\n{tasks_text}\n\n"
+            "Foydalanuvchiga o'zbek tilida, qisqa, motivatsion ertalabki xabar yoz. "
+            "Ob-havo va vazifalar ro'yxatini aniq ko'rsat, qaysi vazifalar bugunga tegishli ekanini ajrat."
+        )
+        return await self._complete(SYSTEM_PROMPT, [{"role": "user", "content": prompt}], max_tokens=500)
+
+    async def compose_planning_prompt(self) -> str:
+        prompt = (
+            "Kun yakunlanmoqda (quyosh botdi). Foydalanuvchidan ertaga yoki keyingi kunlarda "
+            "qilishi kerak bo'lgan ishlarni/vazifalarni so'ra (bir nechta bo'lishi mumkin). "
+            "O'zbek tilida, qisqa va do'stona yoz. "
+            "Oxirida shuni tushuntir: javobini shunchaki yozib yuborsa, ularni vazifa sifatida saqlab qo'yaman."
+        )
+        return await self._complete(SYSTEM_PROMPT, [{"role": "user", "content": prompt}], max_tokens=200)

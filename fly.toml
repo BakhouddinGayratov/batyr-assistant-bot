@@ -1,0 +1,22 @@
+app = "batyr-assistant-bot"
+primary_region = "fra"
+
+[build]
+
+[env]
+  TIMEZONE = "Asia/Tashkent"
+  LATITUDE = "41.2995"
+  LONGITUDE = "69.2401"
+  DIGEST_HOUR = "9"
+  DIGEST_MINUTE = "0"
+  REMINDER_START_HOUR = "9"
+  REMINDER_END_HOUR = "21"
+  DATA_DIR = "/data"
+
+[mounts]
+  source = "batyr_data"
+  destination = "/data"
+
+[[vm]]
+  size = "shared-cpu-1x"
+  memory = "256mb"
