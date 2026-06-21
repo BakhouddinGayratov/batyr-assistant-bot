@@ -42,6 +42,26 @@ def init_db():
             )
             """
         )
+        conn.execute(
+            """
+            CREATE TABLE IF NOT EXISTS settings (
+                chat_id INTEGER NOT NULL,
+                key TEXT NOT NULL,
+                value TEXT NOT NULL,
+                PRIMARY KEY (chat_id, key)
+            )
+            """
+        )
+        conn.execute(
+            """
+            CREATE TABLE IF NOT EXISTS facts (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                chat_id INTEGER NOT NULL,
+                fact TEXT NOT NULL,
+                created_at TEXT DEFAULT CURRENT_TIMESTAMP
+            )
+            """
+        )
 
 
 def add_message(chat_id: int, role: str, content: str):
@@ -84,3 +104,45 @@ def complete_task(chat_id: int, task_id: int):
             "UPDATE tasks SET done = 1 WHERE chat_id = ? AND id = ?",
             (chat_id, task_id),
         )
+
+
+def set_setting(chat_id: int, key: str, value: str):
+    with get_conn() as conn:
+        conn.execute(
+            """
+            INSERT INTO settings (chat_id, key, value) VALUES (?, ?, ?)
+            ON CONFLICT(chat_id, key) DO UPDATE SET value = excluded.value
+            """,
+            (chat_id, key, value),
+        )
+
+
+def get_settings(chat_id: int) -> dict[str, str]:
+    with get_conn() as conn:
+        rows = conn.execute(
+            "SELECT key, value FROM settings WHERE chat_id = ?",
+            (chat_id,),
+        ).fetchall()
+    return dict(rows)
+
+
+def add_fact(chat_id: int, fact: str):
+    with get_conn() as conn:
+        conn.execute(
+            "INSERT INTO facts (chat_id, fact) VALUES (?, ?)",
+            (chat_id, fact),
+        )
+
+
+def get_facts(chat_id: int, limit: int = 30) -> list[str]:
+    with get_conn() as conn:
+        rows = conn.execute(
+            "SELECT fact FROM facts WHERE chat_id = ? ORDER BY id DESC LIMIT ?",
+            (chat_id, limit),
+        ).fetchall()
+    return [r[0] for r in rows]
+
+
+def clear_facts(chat_id: int):
+    with get_conn() as conn:
+        conn.execute("DELETE FROM facts WHERE chat_id = ?", (chat_id,))

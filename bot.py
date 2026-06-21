@@ -26,7 +26,21 @@ BOT_COMMANDS = [
     BotCommand("done", "Vazifani bajarildi deb belgilash"),
     BotCommand("rate", "Valyuta kursini bilish"),
     BotCommand("plan", "Ertaga/kelajak uchun vazifa(lar) qo'shish"),
+    BotCommand("settings", "Yordamchini sozlash (ism, ohang, til)"),
+    BotCommand("forget", "Men haqimda eslab qolgan ma'lumotlarni o'chirish"),
 ]
+
+VALID_TONES = {"samimiy", "rasmiy", "hazil"}
+VALID_VERBOSITY = {"qisqa", "batafsil"}
+
+SETTINGS_HELP = (
+    "Sozlamalar:\n"
+    "/settings name <ism> — yordamchi ismini o'zgartirish\n"
+    "/settings tone samimiy|rasmiy|hazil — gaplashish ohangi\n"
+    "/settings verbosity qisqa|batafsil — javoblar uzunligi\n"
+    "/settings language <til> — masalan: o'zbek, rus, ingliz\n"
+    "/settings show — hozirgi sozlamalarni ko'rish"
+)
 
 HELP_TEXT = (
     "Men nimalar qila olaman:\n\n"
@@ -40,7 +54,9 @@ HELP_TEXT = (
     "🎙 Ovozli xabar yuboring — tushunaman va javob beraman\n"
     "🖼 Rasm yuboring (hujjat, kvitansiya va h.k.) — o'qib/tushuntirib beraman\n"
     "🌤 Har kuni ertalab ob-havo, namaz vaqtlari va vazifalar bilan digest yuboraman\n"
-    "🕋 Har soat namaz/nafl vaqtlari haqida eslatib turaman"
+    "🕋 Har soat namaz/nafl vaqtlari haqida eslatib turaman\n"
+    "⚙️ /settings — meni o'zingizga moslab sozlash (ism, ohang, til)\n"
+    "🧠 Suhbat davomida sizning haqingizda muhim narsalarni eslab qolaman"
 )
 
 MENU_KEYBOARD = InlineKeyboardMarkup(
@@ -122,6 +138,47 @@ async def rate_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
         )
 
 
+async def settings_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    chat_id = update.effective_chat.id
+    args = context.args
+
+    if not args or args[0] == "show":
+        settings = storage.get_settings(chat_id)
+        default_language = "o'zbek"
+        lines = [
+            f"Ism: {settings.get('name', 'Jarvis')}",
+            f"Ohang: {settings.get('tone', 'samimiy')}",
+            f"Javob uzunligi: {settings.get('verbosity', 'qisqa')}",
+            f"Til: {settings.get('language', default_language)}",
+        ]
+        await update.message.reply_text("Hozirgi sozlamalar:\n" + "\n".join(lines) + "\n\n" + SETTINGS_HELP)
+        return
+
+    key = args[0].lower()
+    value = " ".join(args[1:]).strip()
+
+    if key == "name" and value:
+        storage.set_setting(chat_id, "name", value)
+        await update.message.reply_text(f"Ismimni {value} deb belgiladim.")
+    elif key == "tone" and value.lower() in VALID_TONES:
+        storage.set_setting(chat_id, "tone", value.lower())
+        await update.message.reply_text(f"Ohangni {value} qilib o'zgartirdim.")
+    elif key == "verbosity" and value.lower() in VALID_VERBOSITY:
+        storage.set_setting(chat_id, "verbosity", value.lower())
+        await update.message.reply_text(f"Javob uzunligini {value} qilib o'zgartirdim.")
+    elif key == "language" and value:
+        storage.set_setting(chat_id, "language", value)
+        await update.message.reply_text(f"Tilni {value} qilib o'zgartirdim.")
+    else:
+        await update.message.reply_text(SETTINGS_HELP)
+
+
+async def forget_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    chat_id = update.effective_chat.id
+    storage.clear_facts(chat_id)
+    await update.message.reply_text("Siz haqingizda eslab qolgan ma'lumotlarni o'chirdim.")
+
+
 async def _store_tasks_from_text(
     claude: AssistantClient, chat_id: int, text: str, default_due_date: str | None = None
 ) -> list[dict]:
@@ -152,8 +209,14 @@ async def process_user_text(claude: AssistantClient, chat_id: int, user_text: st
 
     await _store_tasks_from_text(claude, chat_id, user_text)
 
+    fact = await claude.extract_fact(user_text)
+    if fact:
+        storage.add_fact(chat_id, fact)
+
+    settings = storage.get_settings(chat_id)
+    facts = storage.get_facts(chat_id)
     history = storage.get_recent_messages(chat_id, limit=12)
-    reply = await claude.chat_reply(history[:-1], user_text)
+    reply = await claude.chat_reply(history[:-1], user_text, settings=settings, facts=facts)
 
     storage.add_message(chat_id, "assistant", reply)
     return reply
@@ -202,7 +265,8 @@ async def handle_photo(update: Update, context: ContextTypes.DEFAULT_TYPE):
     photo_bytes = await file.download_as_bytearray()
     image_base64 = base64.b64encode(photo_bytes).decode("utf-8")
 
-    reply = await claude.describe_image(image_base64, caption)
+    settings = storage.get_settings(chat_id)
+    reply = await claude.describe_image(image_base64, caption, settings=settings)
 
     storage.add_message(chat_id, "user", caption or "[rasm yubordi]")
     storage.add_message(chat_id, "assistant", reply)
@@ -224,6 +288,8 @@ def build_application(token: str, claude: AssistantClient) -> Application:
     application.add_handler(CommandHandler("done", done_task))
     application.add_handler(CommandHandler("rate", rate_command))
     application.add_handler(CommandHandler("plan", plan_command))
+    application.add_handler(CommandHandler("settings", settings_command))
+    application.add_handler(CommandHandler("forget", forget_command))
     application.add_handler(CallbackQueryHandler(menu_callback, pattern=r"^menu:"))
     application.add_handler(MessageHandler(filters.PHOTO, handle_photo))
     application.add_handler(MessageHandler(filters.VOICE | filters.AUDIO, handle_voice))

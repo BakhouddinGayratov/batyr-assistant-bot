@@ -36,7 +36,8 @@ def start_scheduler(
                 desc + (f" (muddat: {due})" if due else "")
                 for _, desc, due in tasks_rows
             ]
-            digest = await claude.compose_digest(weather_summary, tasks)
+            settings = storage.get_settings(owner_chat_id)
+            digest = await claude.compose_digest(weather_summary, tasks, settings=settings)
 
             prayer_times = await get_prayer_times(latitude, longitude, date.today())
             digest = f"{digest}\n\n{format_prayer_times(prayer_times)}"
@@ -53,11 +54,12 @@ def start_scheduler(
             now = datetime.now(scheduler.timezone)
             period = current_period_label(prayer_times, now)
 
+            settings = storage.get_settings(owner_chat_id)
             parts = []
             if period:
                 parts.append(f"🕋 Hozir {period} payti.")
             if tasks:
-                parts.append(await claude.compose_reminder(tasks))
+                parts.append(await claude.compose_reminder(tasks, settings=settings))
 
             if not parts:
                 return
@@ -67,7 +69,8 @@ def start_scheduler(
 
     async def send_planning_prompt():
         try:
-            prompt_text = await claude.compose_planning_prompt()
+            settings = storage.get_settings(owner_chat_id)
+            prompt_text = await claude.compose_planning_prompt(settings=settings)
             application.bot_data["awaiting_plan"].add(owner_chat_id)
             await application.bot.send_message(chat_id=owner_chat_id, text=prompt_text)
         except Exception:

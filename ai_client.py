@@ -11,11 +11,27 @@ MODEL = "llama-3.3-70b-versatile"
 VISION_MODEL = "meta-llama/llama-4-scout-17b-16e-instruct"
 TRANSCRIBE_MODEL = "whisper-large-v3-turbo"
 
-SYSTEM_PROMPT = (
-    "Sen foydalanuvchining shaxsiy yordamchisisan (Telegram bot orqali). "
-    "Foydalanuvchi bilan o'zbek tilida, qisqa va do'stona ohangda gaplash. "
-    "Agar foydalanuvchi biror vazifa, eslatma yoki rejani aytsa, buni qayd etganingni "
-    "tabiiy tilda tasdiqla (masalan: 'Yozib qoldim!')."
+DEFAULT_NAME = "Jarvis"
+DEFAULT_TONE = "samimiy"
+DEFAULT_VERBOSITY = "qisqa"
+DEFAULT_LANGUAGE = "o'zbek"
+
+TONE_DESCRIPTIONS = {
+    "samimiy": "do'stona, iliq va samimiy",
+    "rasmiy": "hurmatli va biroz rasmiy",
+    "hazil": "yengil hazil bilan, ammo foydali",
+}
+
+VERBOSITY_DESCRIPTIONS = {
+    "qisqa": "Javoblarni juda qisqa va aniq yoz (odatda 1-3 gap).",
+    "batafsil": "Kerak bo'lganda batafsil va tushuntirib yoz.",
+}
+
+FACT_EXTRACTION_PROMPT = (
+    "Quyidagi xabarda foydalanuvchi haqida uzoq muddatli eslab qolishga arzigulik "
+    "shaxsiy ma'lumot bo'lsa (ism, kasbi, qiziqishlari, odatlari, afzal ko'rishlari va h.k.), "
+    "buni QISQA bir gap qilib chiqar. Agar bunday ma'lumot yo'q bo'lsa, faqat \"null\" deb yoz. "
+    "Boshqa hech narsa yozma."
 )
 
 TASK_EXTRACTION_PROMPT_TEMPLATE = (
@@ -48,10 +64,50 @@ class AssistantClient:
             data = resp.json()
         return data["choices"][0]["message"]["content"]
 
-    async def chat_reply(self, history: list[tuple[str, str]], user_message: str) -> str:
+    def build_system_prompt(self, settings: dict[str, str] | None = None, facts: list[str] | None = None) -> str:
+        settings = settings or {}
+        name = settings.get("name", DEFAULT_NAME)
+        tone = TONE_DESCRIPTIONS.get(settings.get("tone", DEFAULT_TONE), TONE_DESCRIPTIONS[DEFAULT_TONE])
+        verbosity = VERBOSITY_DESCRIPTIONS.get(
+            settings.get("verbosity", DEFAULT_VERBOSITY), VERBOSITY_DESCRIPTIONS[DEFAULT_VERBOSITY]
+        )
+        language = settings.get("language", DEFAULT_LANGUAGE)
+
+        prompt = (
+            f"Sening isming {name}. Sen foydalanuvchining shaxsiy yordamchisisan (Telegram bot orqali). "
+            f"Foydalanuvchi bilan {language} tilida, {tone} ohangda gaplash. {verbosity} "
+            "Agar foydalanuvchi biror vazifa, eslatma yoki rejani aytsa, buni qayd etganingni "
+            "tabiiy tilda tasdiqla (masalan: 'Yozib qoldim!')."
+        )
+
+        if facts:
+            facts_text = "\n".join(f"- {f}" for f in facts)
+            prompt += f"\n\nFoydalanuvchi haqida bilganlaring:\n{facts_text}"
+
+        return prompt
+
+    async def chat_reply(
+        self,
+        history: list[tuple[str, str]],
+        user_message: str,
+        settings: dict[str, str] | None = None,
+        facts: list[str] | None = None,
+    ) -> str:
+        system_prompt = self.build_system_prompt(settings, facts)
         messages = [{"role": role, "content": content} for role, content in history]
         messages.append({"role": "user", "content": user_message})
-        return await self._complete(SYSTEM_PROMPT, messages)
+        return await self._complete(system_prompt, messages)
+
+    async def extract_fact(self, user_message: str) -> str | None:
+        raw = await self._complete(
+            FACT_EXTRACTION_PROMPT,
+            [{"role": "user", "content": user_message}],
+            max_tokens=100,
+        )
+        raw = raw.strip().strip('"')
+        if not raw or raw.lower() == "null":
+            return None
+        return raw
 
     async def extract_tasks(self, user_message: str, default_due_date: str | None = None) -> list[dict]:
         now = datetime.now(self.timezone).strftime("%Y-%m-%d %H:%M, %A")
@@ -81,7 +137,7 @@ class AssistantClient:
             resp.raise_for_status()
         return resp.json()["text"]
 
-    async def describe_image(self, image_base64: str, caption: str) -> str:
+    async def describe_image(self, image_base64: str, caption: str, settings: dict[str, str] | None = None) -> str:
         text = caption or (
             "Bu rasmda nima bor? O'zbek tilida tushuntir. "
             "Agar rasmda matn, raqamlar yoki yozuv bo'lsa (hujjat, kvitansiya, jadval va h.k.), "
@@ -96,18 +152,24 @@ class AssistantClient:
                 ],
             }
         ]
-        return await self._complete(SYSTEM_PROMPT, messages, max_tokens=600, model=VISION_MODEL)
+        return await self._complete(
+            self.build_system_prompt(settings), messages, max_tokens=600, model=VISION_MODEL
+        )
 
-    async def compose_reminder(self, tasks: list[str]) -> str:
+    async def compose_reminder(self, tasks: list[str], settings: dict[str, str] | None = None) -> str:
         tasks_text = "\n".join(f"- {t}" for t in tasks) if tasks else "Yo'q."
         prompt = (
             f"Foydalanuvchining ochiq vazifalari:\n{tasks_text}\n\n"
             "O'zbek tilida, juda qisqa (1-2 gap), do'stona va motivatsion eslatma yoz. "
             "Eng yaqin/muhim vazifalarni qisqacha eslat va harakatga undash."
         )
-        return await self._complete(SYSTEM_PROMPT, [{"role": "user", "content": prompt}], max_tokens=200)
+        return await self._complete(
+            self.build_system_prompt(settings), [{"role": "user", "content": prompt}], max_tokens=200
+        )
 
-    async def compose_digest(self, weather_summary: str, tasks: list[str]) -> str:
+    async def compose_digest(
+        self, weather_summary: str, tasks: list[str], settings: dict[str, str] | None = None
+    ) -> str:
         tasks_text = "\n".join(f"- {t}" for t in tasks) if tasks else "Hozircha vazifalar yo'q."
         prompt = (
             f"Ertalabki digest tayyorla. Ob-havo: {weather_summary}\n"
@@ -115,13 +177,17 @@ class AssistantClient:
             "Foydalanuvchiga o'zbek tilida, qisqa, motivatsion ertalabki xabar yoz. "
             "Ob-havo va vazifalar ro'yxatini aniq ko'rsat, qaysi vazifalar bugunga tegishli ekanini ajrat."
         )
-        return await self._complete(SYSTEM_PROMPT, [{"role": "user", "content": prompt}], max_tokens=500)
+        return await self._complete(
+            self.build_system_prompt(settings), [{"role": "user", "content": prompt}], max_tokens=500
+        )
 
-    async def compose_planning_prompt(self) -> str:
+    async def compose_planning_prompt(self, settings: dict[str, str] | None = None) -> str:
         prompt = (
             "Kun yakunlanmoqda (quyosh botdi). Foydalanuvchidan ertaga yoki keyingi kunlarda "
             "qilishi kerak bo'lgan ishlarni/vazifalarni so'ra (bir nechta bo'lishi mumkin). "
             "O'zbek tilida, qisqa va do'stona yoz. "
             "Oxirida shuni tushuntir: javobini shunchaki yozib yuborsa, ularni vazifa sifatida saqlab qo'yaman."
         )
-        return await self._complete(SYSTEM_PROMPT, [{"role": "user", "content": prompt}], max_tokens=200)
+        return await self._complete(
+            self.build_system_prompt(settings), [{"role": "user", "content": prompt}], max_tokens=200
+        )
