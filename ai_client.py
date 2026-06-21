@@ -59,13 +59,19 @@ FACT_EXTRACTION_PROMPT = (
 )
 
 TASK_EXTRACTION_PROMPT_TEMPLATE = (
-    "Bugungi sana va vaqt: {now}. Quyidagi xabarda foydalanuvchi bir yoki bir nechta "
-    "vazifa/eslatma/reja qoldirmoqchi bo'lsa (bugun, ertaga, biror kelajakdagi kun uchun), "
-    "buni JSON array formatda chiqar, har bir element: "
+    "Bugungi sana va vaqt: {now}. Quyidagi xabarni tahlil qil.\n\n"
+    "FAQAT foydalanuvchi ANIQ va OCHIQ ravishda biror narsani ESLAB QOLISHINGNI/VAZIFA "
+    "SIFATIDA SAQLASHINGNI so'ragan bo'lsagina, buni vazifa deb hisobla. Masalan: "
+    "\"eslab qol\", \"eslatma qo'y\", \"vazifa qil\", \"yodingda tut\", \"qilishim kerak\", "
+    "\"unutmasligim kerak\" kabi aniq ko'rsatma yoki so'rov bo'lishi shart.\n\n"
+    "FAQAT kelajakdagi reja/voqea haqida shunchaki SUHBAT yoki XABAR bersa (masalan: "
+    "\"ertaga ishga boraman\", \"bugun charchadim\", \"dushanba kuni uchrashuv bor\" — bular "
+    "shunchaki gapirish, eslatma so'rash emas), buni VAZIFA DEB HISOBLAMA — bo'sh array qaytar.\n\n"
+    "Agar vazifa aniqlangan bo'lsa, JSON array qaytar, har bir element: "
     "{{\"description\": \"...\", \"due_at\": \"YYYY-MM-DD HH:MM yoki YYYY-MM-DD yoki null\"}}. "
     "'ertaga', 'bugun', 'dushanba', 'keyingi hafta' kabi nisbiy vaqtlarni yuqoridagi bugungi "
     "sanaga nisbatan aniq sanaga hisobla. {default_due_hint}"
-    "Agar bu shunchaki suhbat bo'lib, hech qanday vazifa bo'lmasa: []. "
+    "Shubha bo'lsa, BO'SH array qaytar — ortiqcha vazifa qo'shishdan ko'ra hech narsa qo'shmagan ma'qul. "
     "Faqat JSON array qaytar, boshqa hech narsa yozma."
 )
 
