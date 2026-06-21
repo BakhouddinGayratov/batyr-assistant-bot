@@ -240,3 +240,36 @@ class AssistantClient:
         return await self._complete(
             self.build_system_prompt(settings), [{"role": "user", "content": prompt}], max_tokens=200
         )
+
+    async def compose_daily_summary(
+        self, completed: list[str], planned_count: int, settings: dict[str, str] | None = None
+    ) -> str:
+        completed_text = "\n".join(f"- {c}" for c in completed) if completed else "Hech narsa belgilanmagan."
+        prompt = (
+            f"Bugun bajarilgan ishlar ({len(completed)} ta):\n{completed_text}\n"
+            f"Bugunga rejalashtirilgan jami vazifalar: {planned_count} ta.\n\n"
+            "Kun yakuni uchun o'zbek tilida qisqa, samimiy xulosa yoz. Necha foiz bajarilganini "
+            "aytib, rag'batlantiruvchi ohangda yoz (yaxshi natija bo'lsa maqta, past bo'lsa "
+            "tushkunlikka tushirmasdan yengil undash)."
+        )
+        return await self._complete(
+            self.build_system_prompt(settings), [{"role": "user", "content": prompt}], max_tokens=300
+        )
+
+    async def compose_period_analytics(
+        self,
+        period_label: str,
+        completed_count: int,
+        planned_count: int,
+        settings: dict[str, str] | None = None,
+    ) -> str:
+        rate = f"{round(100 * completed_count / planned_count)}%" if planned_count else "ma'lumot yo'q"
+        prompt = (
+            f"{period_label} uchun statistika: rejalashtirilgan vazifalar — {planned_count} ta, "
+            f"bajarilgan — {completed_count} ta, bajarilish foizi — {rate}.\n\n"
+            "Shu ma'lumotlar asosida o'zbek tilida qisqa tahliliy xulosa yoz — qanday natija "
+            "ko'rsatganini va keyingi davr uchun bitta qisqa tavsiya ber."
+        )
+        return await self._complete(
+            self.build_system_prompt(settings), [{"role": "user", "content": prompt}], max_tokens=350
+        )

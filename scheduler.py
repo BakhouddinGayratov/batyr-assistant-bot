@@ -1,3 +1,4 @@
+import calendar
 import logging
 from datetime import date, datetime, timedelta
 
@@ -24,6 +25,14 @@ def start_scheduler(
     longitude: float,
     reminder_start_hour: int = 9,
     reminder_end_hour: int = 21,
+    daily_summary_hour: int = 22,
+    daily_summary_minute: int = 30,
+    weekly_summary_dow: str = "sun",
+    weekly_summary_hour: int = 22,
+    weekly_summary_minute: int = 45,
+    monthly_summary_day: int = 1,
+    monthly_summary_hour: int = 9,
+    monthly_summary_minute: int = 30,
 ) -> AsyncIOScheduler:
     scheduler = AsyncIOScheduler(timezone=timezone)
     application.bot_data.setdefault("awaiting_plan", set())
@@ -76,6 +85,50 @@ def start_scheduler(
         except Exception:
             logger.exception("Failed to send sunset planning prompt")
 
+    async def send_daily_summary():
+        try:
+            today = date.today().isoformat()
+            completed_rows = storage.get_completed_tasks_between(owner_chat_id, today, today)
+            completed = [desc for desc, _, _ in completed_rows]
+            planned_count = storage.count_planned_tasks_between(owner_chat_id, today, today)
+            settings = storage.get_settings(owner_chat_id)
+            summary = await claude.compose_daily_summary(completed, planned_count, settings=settings)
+            await application.bot.send_message(chat_id=owner_chat_id, text=summary)
+        except Exception:
+            logger.exception("Failed to send daily summary")
+
+    async def send_weekly_analytics():
+        try:
+            today = date.today()
+            week_start = (today - timedelta(days=6)).isoformat()
+            week_end = today.isoformat()
+            completed_rows = storage.get_completed_tasks_between(owner_chat_id, week_start, week_end)
+            planned_count = storage.count_planned_tasks_between(owner_chat_id, week_start, week_end)
+            settings = storage.get_settings(owner_chat_id)
+            analytics = await claude.compose_period_analytics(
+                "Shu hafta", len(completed_rows), planned_count, settings=settings
+            )
+            await application.bot.send_message(chat_id=owner_chat_id, text=analytics)
+        except Exception:
+            logger.exception("Failed to send weekly analytics")
+
+    async def send_monthly_analytics():
+        try:
+            today = date.today()
+            last_day_prev_month = today.replace(day=1) - timedelta(days=1)
+            month_start = last_day_prev_month.replace(day=1).isoformat()
+            month_end = last_day_prev_month.isoformat()
+            month_label = calendar.month_name[last_day_prev_month.month]
+            completed_rows = storage.get_completed_tasks_between(owner_chat_id, month_start, month_end)
+            planned_count = storage.count_planned_tasks_between(owner_chat_id, month_start, month_end)
+            settings = storage.get_settings(owner_chat_id)
+            analytics = await claude.compose_period_analytics(
+                f"{month_label} oyi", len(completed_rows), planned_count, settings=settings
+            )
+            await application.bot.send_message(chat_id=owner_chat_id, text=analytics)
+        except Exception:
+            logger.exception("Failed to send monthly analytics")
+
     async def schedule_today_sunset_prompt():
         try:
             sunset = await get_sunset(latitude, longitude)
@@ -92,6 +145,15 @@ def start_scheduler(
         CronTrigger(hour=f"{reminder_start_hour}-{reminder_end_hour}", minute=0),
     )
     scheduler.add_job(schedule_today_sunset_prompt, CronTrigger(hour=0, minute=5))
+    scheduler.add_job(send_daily_summary, CronTrigger(hour=daily_summary_hour, minute=daily_summary_minute))
+    scheduler.add_job(
+        send_weekly_analytics,
+        CronTrigger(day_of_week=weekly_summary_dow, hour=weekly_summary_hour, minute=weekly_summary_minute),
+    )
+    scheduler.add_job(
+        send_monthly_analytics,
+        CronTrigger(day=monthly_summary_day, hour=monthly_summary_hour, minute=monthly_summary_minute),
+    )
     scheduler.start()
     scheduler.add_job(
         schedule_today_sunset_prompt,

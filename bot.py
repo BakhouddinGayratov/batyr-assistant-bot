@@ -1,4 +1,5 @@
 import base64
+import calendar
 import logging
 from datetime import date, timedelta
 
@@ -25,6 +26,7 @@ BOT_COMMANDS = [
     BotCommand("tasks", "Ochiq vazifalarni ko'rish"),
     BotCommand("done", "Vazifani bajarildi deb belgilash"),
     BotCommand("delete", "Vazifani butunlay o'chirish"),
+    BotCommand("stats", "Bugun/hafta/oy bo'yicha statistikani ko'rish"),
     BotCommand("rate", "Valyuta kursini bilish"),
     BotCommand("plan", "Ertaga/kelajak uchun vazifa(lar) qo'shish"),
     BotCommand("settings", "Yordamchini sozlash (ism, ohang, til)"),
@@ -55,6 +57,7 @@ HELP_TEXT = (
     "📋 /tasks — ochiq vazifalarni ko'rish\n"
     "✅ /done <raqam> — vazifani bajarildi deb belgilash\n"
     "🗑 /delete <raqam> — vazifani butunlay o'chirish\n"
+    "📊 /stats bugun|hafta|oy — bajarish statistikasini ko'rish\n"
     "💱 /rate USD UZS — valyuta kursi\n"
     "🎯 /plan <matn> — ertaga/kelajak uchun vazifa(lar) qo'shish\n"
     "🌅 Har kuni quyosh botganda ertangi/kelajakdagi ishlar haqida so'rayman\n"
@@ -161,6 +164,44 @@ async def delete_task_command(update: Update, context: ContextTypes.DEFAULT_TYPE
     task_id = int(args[0])
     storage.delete_task(chat_id, task_id)
     await update.message.reply_text(f"#{task_id} o'chirildi.")
+
+
+async def stats_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    claude: AssistantClient = context.application.bot_data["claude"]
+    chat_id = update.effective_chat.id
+    period = (context.args[0].lower() if context.args else "bugun")
+    settings = storage.get_settings(chat_id)
+    today = date.today()
+
+    if period in ("bugun", "today"):
+        start = end = today.isoformat()
+        completed_rows = storage.get_completed_tasks_between(chat_id, start, end)
+        planned = storage.count_planned_tasks_between(chat_id, start, end)
+        text = await claude.compose_daily_summary(
+            [desc for desc, _, _ in completed_rows], planned, settings=settings
+        )
+    elif period in ("hafta", "week"):
+        start = (today - timedelta(days=6)).isoformat()
+        end = today.isoformat()
+        completed_rows = storage.get_completed_tasks_between(chat_id, start, end)
+        planned = storage.count_planned_tasks_between(chat_id, start, end)
+        text = await claude.compose_period_analytics(
+            "So'nggi 7 kun", len(completed_rows), planned, settings=settings
+        )
+    elif period in ("oy", "month"):
+        start = today.replace(day=1).isoformat()
+        end = today.isoformat()
+        completed_rows = storage.get_completed_tasks_between(chat_id, start, end)
+        planned = storage.count_planned_tasks_between(chat_id, start, end)
+        label = calendar.month_name[today.month]
+        text = await claude.compose_period_analytics(
+            f"{label} oyi (hozirgacha)", len(completed_rows), planned, settings=settings
+        )
+    else:
+        await update.message.reply_text("Foydalanish: /stats bugun|hafta|oy")
+        return
+
+    await update.message.reply_text(text)
 
 
 async def rate_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
@@ -394,6 +435,7 @@ def build_application(token: str, claude: AssistantClient) -> Application:
     application.add_handler(CommandHandler("tasks", list_tasks))
     application.add_handler(CommandHandler("done", done_task))
     application.add_handler(CommandHandler("delete", delete_task_command))
+    application.add_handler(CommandHandler("stats", stats_command))
     application.add_handler(CommandHandler("rate", rate_command))
     application.add_handler(CommandHandler("plan", plan_command))
     application.add_handler(CommandHandler("settings", settings_command))

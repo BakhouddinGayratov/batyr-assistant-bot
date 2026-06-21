@@ -1,10 +1,17 @@
 import os
 import sqlite3
 from contextlib import contextmanager
+from datetime import datetime
 from pathlib import Path
+from zoneinfo import ZoneInfo
 
 DB_DIR = Path(os.environ.get("DATA_DIR", Path(__file__).parent))
 DB_PATH = DB_DIR / "assistant.db"
+LOCAL_TZ = ZoneInfo(os.environ.get("TIMEZONE", "Asia/Tashkent"))
+
+
+def _now_local() -> str:
+    return datetime.now(LOCAL_TZ).strftime("%Y-%m-%d %H:%M:%S")
 
 
 @contextmanager
@@ -38,10 +45,15 @@ def init_db():
                 description TEXT NOT NULL,
                 due_at TEXT,
                 done INTEGER DEFAULT 0,
-                created_at TEXT DEFAULT CURRENT_TIMESTAMP
+                created_at TEXT DEFAULT CURRENT_TIMESTAMP,
+                completed_at TEXT
             )
             """
         )
+        try:
+            conn.execute("ALTER TABLE tasks ADD COLUMN completed_at TEXT")
+        except sqlite3.OperationalError:
+            pass
         conn.execute(
             """
             CREATE TABLE IF NOT EXISTS settings (
@@ -111,9 +123,36 @@ def get_open_tasks(chat_id: int):
 def complete_task(chat_id: int, task_id: int):
     with get_conn() as conn:
         conn.execute(
-            "UPDATE tasks SET done = 1 WHERE chat_id = ? AND id = ?",
-            (chat_id, task_id),
+            "UPDATE tasks SET done = 1, completed_at = ? WHERE chat_id = ? AND id = ?",
+            (_now_local(), chat_id, task_id),
         )
+
+
+def get_completed_tasks_between(chat_id: int, start_date: str, end_date: str):
+    with get_conn() as conn:
+        rows = conn.execute(
+            """
+            SELECT description, due_at, completed_at FROM tasks
+            WHERE chat_id = ? AND completed_at IS NOT NULL
+              AND date(completed_at) BETWEEN ? AND ?
+            ORDER BY completed_at
+            """,
+            (chat_id, start_date, end_date),
+        ).fetchall()
+    return rows
+
+
+def count_planned_tasks_between(chat_id: int, start_date: str, end_date: str) -> int:
+    with get_conn() as conn:
+        row = conn.execute(
+            """
+            SELECT COUNT(*) FROM tasks
+            WHERE chat_id = ? AND due_at IS NOT NULL
+              AND date(due_at) BETWEEN ? AND ?
+            """,
+            (chat_id, start_date, end_date),
+        ).fetchone()
+    return row[0]
 
 
 def delete_task(chat_id: int, task_id: int):
