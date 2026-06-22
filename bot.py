@@ -18,6 +18,7 @@ import storage
 from ai_client import AssistantClient
 from currency import get_rate
 from prayer import format_prayer_times, get_prayer_times
+from scheduler import start_scheduler
 
 logger = logging.getLogger(__name__)
 
@@ -481,6 +482,9 @@ async def handle_photo(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
 async def _post_init(application: Application):
     await application.bot.set_my_commands(BOT_COMMANDS)
+    scheduler_config = application.bot_data.get("scheduler_config")
+    if scheduler_config:
+        start_scheduler(application, **scheduler_config)
 
 
 async def _error_handler(update: object, context: ContextTypes.DEFAULT_TYPE):

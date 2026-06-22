@@ -7,7 +7,6 @@ import storage
 from bot import build_application
 from ai_client import AssistantClient
 from healthcheck import start_health_server
-from scheduler import start_scheduler
 
 load_dotenv()
 
@@ -37,17 +36,16 @@ def main():
     application.bot_data["longitude"] = longitude
 
     if owner_chat_id:
-        start_scheduler(
-            application,
-            claude,
-            int(owner_chat_id),
-            digest_hour,
-            digest_minute,
-            timezone,
-            latitude,
-            longitude,
-            reminder_start_hour,
-            reminder_end_hour,
+        application.bot_data["scheduler_config"] = dict(
+            claude=claude,
+            owner_chat_id=int(owner_chat_id),
+            hour=digest_hour,
+            minute=digest_minute,
+            timezone=timezone,
+            latitude=latitude,
+            longitude=longitude,
+            reminder_start_hour=reminder_start_hour,
+            reminder_end_hour=reminder_end_hour,
         )
     else:
         logger.warning(
