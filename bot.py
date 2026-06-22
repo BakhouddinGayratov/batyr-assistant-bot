@@ -351,38 +351,53 @@ async def plan_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
     await update.message.reply_text("\n\n".join(parts))
 
 
+async def _extract_and_store_background(
+    claude: AssistantClient, chat_id: int, user_text: str, send_followup
+):
+    try:
+        tasks = await claude.extract_tasks(user_text)
+        today_str = date.today().isoformat()
+        rejected = []
+        for task in tasks:
+            due = task.get("due_at")
+            due_date = due[:10] if due else None
+            if due_date and due_date < today_str:
+                rejected.append(task)
+            else:
+                storage.add_task(chat_id, task["description"], due)
+        if rejected and send_followup:
+            await send_followup(_rejected_tasks_note(rejected))
+    except Exception:
+        logger.exception("Background task extraction failed")
+
+    try:
+        fact = await claude.extract_fact(user_text)
+        if fact:
+            storage.add_fact(chat_id, fact)
+    except Exception:
+        logger.exception("Background fact extraction failed")
+
+
 async def process_user_text(
-    claude: AssistantClient, chat_id: int, user_text: str, history: list[tuple[str, str]]
+    claude: AssistantClient,
+    chat_id: int,
+    user_text: str,
+    history: list[tuple[str, str]],
+    send_followup=None,
 ) -> str:
     settings = storage.get_settings(chat_id)
     facts = storage.get_facts(chat_id)
     corrections = storage.get_corrections(chat_id)
 
-    extracted_tasks, fact, reply = await asyncio.gather(
-        claude.extract_tasks(user_text),
-        claude.extract_fact(user_text),
-        claude.chat_reply(history, user_text, settings=settings, facts=facts, corrections=corrections),
+    reply = await claude.chat_reply(
+        history, user_text, settings=settings, facts=facts, corrections=corrections
     )
-
-    today_str = date.today().isoformat()
-    rejected = []
-    for task in extracted_tasks:
-        due = task.get("due_at")
-        due_date = due[:10] if due else None
-        if due_date and due_date < today_str:
-            rejected.append(task)
-        else:
-            storage.add_task(chat_id, task["description"], due)
-
-    if fact:
-        storage.add_fact(chat_id, fact)
-
-    if rejected:
-        reply = _rejected_tasks_note(rejected) + "\n\n" + reply
 
     history.append(("user", user_text))
     history.append(("assistant", reply))
     del history[:-12]
+
+    asyncio.create_task(_extract_and_store_background(claude, chat_id, user_text, send_followup))
     return reply
 
 
@@ -413,7 +428,9 @@ async def handle_message(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
     history = context.application.bot_data.setdefault("chat_history", {}).setdefault(chat_id, [])
     try:
-        reply = await process_user_text(claude, chat_id, update.message.text, history)
+        reply = await process_user_text(
+            claude, chat_id, update.message.text, history, send_followup=update.message.reply_text
+        )
     except Exception:
         logger.exception("Failed to process text message for chat %s", chat_id)
         await update.message.reply_text("Uzr, javob berishda xatolik yuz berdi. Birozdan keyin qayta urinib ko'ring.")
@@ -432,7 +449,9 @@ async def handle_voice(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
         transcript = await claude.transcribe_audio(voice_bytes)
         history = context.application.bot_data.setdefault("chat_history", {}).setdefault(chat_id, [])
-        reply = await process_user_text(claude, chat_id, transcript, history)
+        reply = await process_user_text(
+            claude, chat_id, transcript, history, send_followup=update.message.reply_text
+        )
     except Exception:
         logger.exception("Failed to process voice message for chat %s", chat_id)
         await update.message.reply_text("Uzr, ovozli xabarni qayta ishlab bo'lmadi. Birozdan keyin qayta urinib ko'ring.")
