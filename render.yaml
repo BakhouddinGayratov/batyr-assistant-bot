@@ -27,6 +27,6 @@ services:
       - key: DIGEST_MINUTE
         value: "0"
       - key: REMINDER_START_HOUR
-        value: "9"
+        value: "4"
       - key: REMINDER_END_HOUR
-        value: "21"
+        value: "23"

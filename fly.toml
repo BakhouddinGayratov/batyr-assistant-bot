@@ -9,8 +9,8 @@ primary_region = "fra"
   LONGITUDE = "69.2401"
   DIGEST_HOUR = "9"
   DIGEST_MINUTE = "0"
-  REMINDER_START_HOUR = "9"
-  REMINDER_END_HOUR = "21"
+  REMINDER_START_HOUR = "4"
+  REMINDER_END_HOUR = "23"
   DATA_DIR = "/data"
 
 [mounts]
