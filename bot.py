@@ -412,7 +412,12 @@ async def handle_message(update: Update, context: ContextTypes.DEFAULT_TYPE):
         return
 
     history = context.application.bot_data.setdefault("chat_history", {}).setdefault(chat_id, [])
-    reply = await process_user_text(claude, chat_id, update.message.text, history)
+    try:
+        reply = await process_user_text(claude, chat_id, update.message.text, history)
+    except Exception:
+        logger.exception("Failed to process text message for chat %s", chat_id)
+        await update.message.reply_text("Uzr, javob berishda xatolik yuz berdi. Birozdan keyin qayta urinib ko'ring.")
+        return
     await update.message.reply_text(reply)
 
 
@@ -420,13 +425,18 @@ async def handle_voice(update: Update, context: ContextTypes.DEFAULT_TYPE):
     claude: AssistantClient = context.application.bot_data["claude"]
     chat_id = update.effective_chat.id
 
-    voice = update.message.voice or update.message.audio
-    file = await voice.get_file()
-    voice_bytes = await file.download_as_bytearray()
+    try:
+        voice = update.message.voice or update.message.audio
+        file = await voice.get_file()
+        voice_bytes = await file.download_as_bytearray()
 
-    transcript = await claude.transcribe_audio(voice_bytes)
-    history = context.application.bot_data.setdefault("chat_history", {}).setdefault(chat_id, [])
-    reply = await process_user_text(claude, chat_id, transcript, history)
+        transcript = await claude.transcribe_audio(voice_bytes)
+        history = context.application.bot_data.setdefault("chat_history", {}).setdefault(chat_id, [])
+        reply = await process_user_text(claude, chat_id, transcript, history)
+    except Exception:
+        logger.exception("Failed to process voice message for chat %s", chat_id)
+        await update.message.reply_text("Uzr, ovozli xabarni qayta ishlab bo'lmadi. Birozdan keyin qayta urinib ko'ring.")
+        return
     await update.message.reply_text(f"🎙 {transcript}\n\n{reply}")
 
 
@@ -435,18 +445,31 @@ async def handle_photo(update: Update, context: ContextTypes.DEFAULT_TYPE):
     chat_id = update.effective_chat.id
     caption = update.message.caption or ""
 
-    photo = update.message.photo[-1]
-    file = await photo.get_file()
-    photo_bytes = await file.download_as_bytearray()
-    image_base64 = base64.b64encode(photo_bytes).decode("utf-8")
+    try:
+        photo = update.message.photo[-1]
+        file = await photo.get_file()
+        photo_bytes = await file.download_as_bytearray()
+        image_base64 = base64.b64encode(photo_bytes).decode("utf-8")
 
-    settings = storage.get_settings(chat_id)
-    reply = await claude.describe_image(image_base64, caption, settings=settings)
+        settings = storage.get_settings(chat_id)
+        reply = await claude.describe_image(image_base64, caption, settings=settings)
+    except Exception:
+        logger.exception("Failed to process photo for chat %s", chat_id)
+        await update.message.reply_text("Uzr, rasmni qayta ishlab bo'lmadi. Birozdan keyin qayta urinib ko'ring.")
+        return
     await update.message.reply_text(reply)
 
 
 async def _post_init(application: Application):
     await application.bot.set_my_commands(BOT_COMMANDS)
+
+
+async def _error_handler(update: object, context: ContextTypes.DEFAULT_TYPE):
+    logger.error("Unhandled exception while processing update %s", update, exc_info=context.error)
+    if isinstance(update, Update) and update.effective_message:
+        await update.effective_message.reply_text(
+            "Uzr, kutilmagan xatolik yuz berdi. Birozdan keyin qayta urinib ko'ring."
+        )
 
 
 def build_application(token: str, claude: AssistantClient) -> Application:
@@ -471,5 +494,6 @@ def build_application(token: str, claude: AssistantClient) -> Application:
     application.add_handler(MessageHandler(filters.PHOTO, handle_photo))
     application.add_handler(MessageHandler(filters.VOICE | filters.AUDIO, handle_voice))
     application.add_handler(MessageHandler(filters.TEXT & ~filters.COMMAND, handle_message))
+    application.add_error_handler(_error_handler)
 
     return application
