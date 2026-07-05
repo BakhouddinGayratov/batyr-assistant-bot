@@ -80,6 +80,13 @@ class AssistantClient:
     def __init__(self, timezone: str = "Asia/Tashkent"):
         self.api_key = os.environ["GROQ_API_KEY"]
         self.timezone = ZoneInfo(timezone)
+        self._client = httpx.AsyncClient(
+            timeout=30,
+            headers={"Authorization": f"Bearer {self.api_key}"},
+        )
+
+    async def aclose(self):
+        await self._client.aclose()
 
     async def _complete(self, system: str, messages: list[dict], max_tokens: int = 600, model: str = MODEL) -> str:
         payload = {
@@ -87,12 +94,9 @@ class AssistantClient:
             "max_tokens": max_tokens,
             "messages": [{"role": "system", "content": system}] + messages,
         }
-        headers = {"Authorization": f"Bearer {self.api_key}"}
-        async with httpx.AsyncClient(timeout=30) as client:
-            resp = await client.post(GROQ_URL, json=payload, headers=headers)
-            resp.raise_for_status()
-            data = resp.json()
-        return data["choices"][0]["message"]["content"]
+        resp = await self._client.post(GROQ_URL, json=payload)
+        resp.raise_for_status()
+        return resp.json()["choices"][0]["message"]["content"]
 
     def build_system_prompt(
         self,
@@ -184,12 +188,10 @@ class AssistantClient:
             return []
 
     async def transcribe_audio(self, audio_bytes: bytes, filename: str = "voice.ogg") -> str:
-        headers = {"Authorization": f"Bearer {self.api_key}"}
         files = {"file": (filename, bytes(audio_bytes), "audio/ogg")}
         data = {"model": TRANSCRIBE_MODEL}
-        async with httpx.AsyncClient(timeout=30) as client:
-            resp = await client.post(GROQ_TRANSCRIBE_URL, headers=headers, files=files, data=data)
-            resp.raise_for_status()
+        resp = await self._client.post(GROQ_TRANSCRIBE_URL, files=files, data=data)
+        resp.raise_for_status()
         return resp.json()["text"]
 
     async def describe_image(self, image_base64: str, caption: str, settings: dict[str, str] | None = None) -> str:

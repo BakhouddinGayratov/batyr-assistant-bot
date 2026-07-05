@@ -1,3 +1,4 @@
+import asyncio
 import calendar
 import logging
 from datetime import date, datetime, timedelta
@@ -39,18 +40,18 @@ def start_scheduler(
 
     async def send_digest():
         try:
-            weather_summary = await get_weather_summary(latitude, longitude)
             tasks_rows = storage.get_open_tasks(owner_chat_id)
+            settings = storage.get_settings(owner_chat_id)
             tasks = [
                 desc + (f" (muddat: {due})" if due else "")
                 for _, desc, due in tasks_rows
             ]
-            settings = storage.get_settings(owner_chat_id)
+            weather_summary, prayer_times = await asyncio.gather(
+                get_weather_summary(latitude, longitude),
+                get_prayer_times(latitude, longitude, date.today()),
+            )
             digest = await claude.compose_digest(weather_summary, tasks, settings=settings)
-
-            prayer_times = await get_prayer_times(latitude, longitude, date.today())
             digest = f"{digest}\n\n{format_prayer_times(prayer_times)}"
-
             await application.bot.send_message(chat_id=owner_chat_id, text=digest)
         except Exception:
             logger.exception("Failed to send daily digest")
@@ -58,12 +59,12 @@ def start_scheduler(
     async def send_reminder():
         try:
             tasks = [desc for _, desc, _ in storage.get_open_tasks(owner_chat_id)]
+            settings = storage.get_settings(owner_chat_id)
 
             prayer_times = await get_prayer_times(latitude, longitude, date.today())
             now = datetime.now(scheduler.timezone)
             period = current_period_label(prayer_times, now)
 
-            settings = storage.get_settings(owner_chat_id)
             parts = []
             if period:
                 parts.append(f"🕋 Hozir {period} payti.")

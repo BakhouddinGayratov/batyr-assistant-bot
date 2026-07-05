@@ -355,11 +355,18 @@ async def plan_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
 async def _extract_and_store_background(
     claude: AssistantClient, chat_id: int, user_text: str, send_followup
 ):
-    try:
-        tasks = await claude.extract_tasks(user_text)
+    tasks_result, fact = await asyncio.gather(
+        claude.extract_tasks(user_text),
+        claude.extract_fact(user_text),
+        return_exceptions=True,
+    )
+
+    if isinstance(tasks_result, Exception):
+        logger.exception("Background task extraction failed", exc_info=tasks_result)
+    else:
         today_str = date.today().isoformat()
         rejected = []
-        for task in tasks:
+        for task in tasks_result:
             due = task.get("due_at")
             due_date = due[:10] if due else None
             if due_date and due_date < today_str:
@@ -368,15 +375,11 @@ async def _extract_and_store_background(
                 storage.add_task(chat_id, task["description"], due)
         if rejected and send_followup:
             await send_followup(_rejected_tasks_note(rejected))
-    except Exception:
-        logger.exception("Background task extraction failed")
 
-    try:
-        fact = await claude.extract_fact(user_text)
-        if fact:
-            storage.add_fact(chat_id, fact)
-    except Exception:
-        logger.exception("Background fact extraction failed")
+    if isinstance(fact, Exception):
+        logger.exception("Background fact extraction failed", exc_info=fact)
+    elif fact:
+        storage.add_fact(chat_id, fact)
 
 
 async def process_user_text(
@@ -487,6 +490,12 @@ async def _post_init(application: Application):
         start_scheduler(application, **scheduler_config)
 
 
+async def _post_shutdown(application: Application):
+    claude: AssistantClient | None = application.bot_data.get("claude")
+    if claude:
+        await claude.aclose()
+
+
 async def _error_handler(update: object, context: ContextTypes.DEFAULT_TYPE):
     logger.error("Unhandled exception while processing update %s", update, exc_info=context.error)
     if isinstance(update, Update) and update.effective_message:
@@ -496,7 +505,7 @@ async def _error_handler(update: object, context: ContextTypes.DEFAULT_TYPE):
 
 
 def build_application(token: str, claude: AssistantClient) -> Application:
-    application = Application.builder().token(token).post_init(_post_init).build()
+    application = Application.builder().token(token).post_init(_post_init).post_shutdown(_post_shutdown).build()
     application.bot_data["claude"] = claude
 
     application.add_handler(CommandHandler("start", start))
