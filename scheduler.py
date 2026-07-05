@@ -54,18 +54,35 @@ def start_scheduler(
         except Exception:
             logger.exception("Failed to send daily digest")
 
-    PRAYER_NAMES = ["Bomdod", "Peshin", "Asr", "Shom", "Xufton"]
+    PRAYER_NAMES = ["Fajr", "Dhuhr", "Asr", "Maghrib", "Isha"]
 
     async def send_prayer_reminder(prayer_name: str):
         try:
             tasks = [desc for _, desc, _ in storage.get_open_tasks(owner_chat_id)]
             settings = storage.get_settings(owner_chat_id)
-            parts = [f"🕋 {prayer_name} namozi vaqti keldi!"]
+            parts = [f"🕋 {prayer_name} prayer time!"]
             if tasks:
                 parts.append(await claude.compose_reminder(tasks, settings=settings))
             await application.bot.send_message(chat_id=owner_chat_id, text="\n\n".join(parts))
         except Exception:
             logger.exception("Failed to send prayer reminder for %s", prayer_name)
+
+    async def send_task_reminder():
+        try:
+            tasks = [desc for _, desc, _ in storage.get_open_tasks(owner_chat_id)]
+            if not tasks:
+                return
+            settings = storage.get_settings(owner_chat_id)
+            reminder = await claude.compose_reminder(tasks, settings=settings)
+            await application.bot.send_message(chat_id=owner_chat_id, text=reminder)
+        except Exception:
+            logger.exception("Failed to send task reminder")
+
+    async def expire_overdue():
+        try:
+            storage.expire_overdue_tasks()
+        except Exception:
+            logger.exception("Failed to expire overdue tasks")
 
     async def schedule_today_prayer_reminders():
         try:
@@ -153,6 +170,8 @@ def start_scheduler(
             logger.exception("Failed to schedule sunset planning prompt")
 
     scheduler.add_job(send_digest, CronTrigger(hour=hour, minute=minute))
+    scheduler.add_job(send_task_reminder, CronTrigger(hour="3-23", minute=0))
+    scheduler.add_job(expire_overdue, CronTrigger(hour=0, minute=0))
     scheduler.add_job(schedule_today_prayer_reminders, CronTrigger(hour=0, minute=1))
     scheduler.add_job(schedule_today_sunset_prompt, CronTrigger(hour=0, minute=5))
     scheduler.add_job(send_daily_summary, CronTrigger(hour=daily_summary_hour, minute=daily_summary_minute))
@@ -166,6 +185,7 @@ def start_scheduler(
     )
     scheduler.start()
     startup = datetime.now(scheduler.timezone) + timedelta(seconds=5)
-    scheduler.add_job(schedule_today_prayer_reminders, "date", run_date=startup)
-    scheduler.add_job(schedule_today_sunset_prompt, "date", run_date=startup + timedelta(seconds=2))
+    scheduler.add_job(expire_overdue, "date", run_date=startup)
+    scheduler.add_job(schedule_today_prayer_reminders, "date", run_date=startup + timedelta(seconds=2))
+    scheduler.add_job(schedule_today_sunset_prompt, "date", run_date=startup + timedelta(seconds=4))
     return scheduler

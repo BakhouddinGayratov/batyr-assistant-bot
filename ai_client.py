@@ -12,67 +12,64 @@ VISION_MODEL = "meta-llama/llama-4-scout-17b-16e-instruct"
 TRANSCRIBE_MODEL = "whisper-large-v3-turbo"
 
 DEFAULT_NAME = "Jarvis"
-DEFAULT_TONE = "samimiy"
-DEFAULT_VERBOSITY = "qisqa"
-DEFAULT_LANGUAGE = "o'zbek"
+DEFAULT_TONE = "friendly"
+DEFAULT_VERBOSITY = "brief"
+DEFAULT_LANGUAGE = "English"
+DEFAULT_EMOJI = "few"
 
 TONE_DESCRIPTIONS = {
-    "samimiy": "do'stona, iliq va samimiy",
-    "rasmiy": "hurmatli va biroz rasmiy",
-    "hazil": "yengil hazil bilan, ammo foydali",
+    "friendly": "warm, friendly, and casual",
+    "formal": "respectful and somewhat formal",
+    "humorous": "light-hearted with gentle humor, but still helpful",
 }
 
 VERBOSITY_DESCRIPTIONS = {
-    "qisqa": "Javoblarni juda qisqa va aniq yoz (odatda 1-3 gap).",
-    "batafsil": "Kerak bo'lganda batafsil va tushuntirib yoz.",
+    "brief": "Keep responses very short and to the point (usually 1-3 sentences).",
+    "detailed": "Provide detailed explanations when needed.",
 }
 
 EMOJI_DESCRIPTIONS = {
-    "yoq": "Javoblarda emoji ishlatma.",
-    "oz": "Javoblarda kamdan-kam, faqat o'rinli bo'lganda bitta emoji ishlat.",
-    "kop": "Javoblarda his-tuyg'ularni ifodalash uchun emojilardan erkin foydalan.",
+    "none": "Do not use any emojis in responses.",
+    "few": "Use emojis sparingly, only when clearly appropriate.",
+    "many": "Feel free to use emojis to add warmth and expression.",
 }
-DEFAULT_EMOJI = "oz"
 
 TIME_OF_DAY_ENERGY = [
-    (0, 5, "Hozir kech tun — juda tinch, qisqa va xotirjam ohangda gapir."),
-    (5, 11, "Hozir ertalab — energik va ruhlantiruvchi ohangda gapir."),
-    (11, 17, "Hozir kunduzi — ishchan va samarali ohangda gapir."),
-    (17, 22, "Hozir kechqurun — iliq va xotirjam ohangda gapir."),
-    (22, 24, "Hozir kech tun — juda tinch, qisqa va xotirjam ohangda gapir."),
+    (0, 5, "It's late night — be very calm, brief, and soothing."),
+    (5, 11, "It's morning — be energetic and encouraging."),
+    (11, 17, "It's midday — be focused and productive."),
+    (17, 22, "It's evening — be warm and relaxed."),
+    (22, 24, "It's late night — be very calm, brief, and soothing."),
 ]
 
-NATURAL_UZBEK_GUIDE = (
-    "Tilga e'tibor: agar til o'zbek bo'lsa, faqat tabiiy, jonli, kundalik so'zlashuv "
-    "o'zbek tilida yoz — Toshkentda odamlar gaplashadigan uslubda. Inglizcha/ruschadan "
-    "so'zma-so'z tarjima qilingandek qattiq, kitobiy yoki noqulay jumlalar yozma. "
-    "Murakkab, uzun yoki rasman-kitobiy so'zlar o'rniga oddiy va tabiiy so'zlarni tanla. "
-    "Misol: 'Men sizga yordam berishdan mamnunman' EMAS, balki 'Mayli, yordam beraman' kabi yoz. "
-    "Misol: 'Ushbu vazifa muvaffaqiyatli bajarildi' EMAS, balki 'Bo'ldi, qildim' kabi yoz."
+NATURAL_LANGUAGE_GUIDE = (
+    "Write in natural, conversational language. "
+    "Avoid stiff, overly formal, robotic, or translated-sounding phrases. "
+    "Be human and approachable."
 )
 
 FACT_EXTRACTION_PROMPT = (
-    "Quyidagi xabarda foydalanuvchi haqida uzoq muddatli eslab qolishga arzigulik "
-    "shaxsiy ma'lumot bo'lsa (ism, kasbi, qiziqishlari, odatlari, afzal ko'rishlari va h.k.), "
-    "buni QISQA bir gap qilib chiqar. Agar bunday ma'lumot yo'q bo'lsa, faqat \"null\" deb yoz. "
-    "Boshqa hech narsa yozma."
+    "If the following message contains a long-term personal fact worth remembering "
+    "(name, profession, interests, habits, preferences, etc.), "
+    "extract it as ONE short sentence. If there is no such fact, reply with exactly 'null'. "
+    "Reply with nothing else."
 )
 
 TASK_EXTRACTION_PROMPT_TEMPLATE = (
-    "Bugungi sana va vaqt: {now}. Quyidagi xabarni tahlil qil.\n\n"
-    "FAQAT foydalanuvchi ANIQ va OCHIQ ravishda biror narsani ESLAB QOLISHINGNI/VAZIFA "
-    "SIFATIDA SAQLASHINGNI so'ragan bo'lsagina, buni vazifa deb hisobla. Masalan: "
-    "\"eslab qol\", \"eslatma qo'y\", \"vazifa qil\", \"yodingda tut\", \"qilishim kerak\", "
-    "\"unutmasligim kerak\" kabi aniq ko'rsatma yoki so'rov bo'lishi shart.\n\n"
-    "FAQAT kelajakdagi reja/voqea haqida shunchaki SUHBAT yoki XABAR bersa (masalan: "
-    "\"ertaga ishga boraman\", \"bugun charchadim\", \"dushanba kuni uchrashuv bor\" — bular "
-    "shunchaki gapirish, eslatma so'rash emas), buni VAZIFA DEB HISOBLAMA — bo'sh array qaytar.\n\n"
-    "Agar vazifa aniqlangan bo'lsa, JSON array qaytar, har bir element: "
-    "{{\"description\": \"...\", \"due_at\": \"YYYY-MM-DD HH:MM yoki YYYY-MM-DD yoki null\"}}. "
-    "'ertaga', 'bugun', 'dushanba', 'keyingi hafta' kabi nisbiy vaqtlarni yuqoridagi bugungi "
-    "sanaga nisbatan aniq sanaga hisobla. {default_due_hint}"
-    "Shubha bo'lsa, BO'SH array qaytar — ortiqcha vazifa qo'shishdan ko'ra hech narsa qo'shmagan ma'qul. "
-    "Faqat JSON array qaytar, boshqa hech narsa yozma."
+    "Today's date and time: {now}. Analyze the following message.\n\n"
+    "ONLY treat it as a task if the user EXPLICITLY and CLEARLY asks you to remember, "
+    "save, or note something as a task. Examples of explicit requests: "
+    "\"remind me\", \"note this\", \"add a task\", \"don't forget\", \"I need to\", "
+    "\"I must not forget\" — there must be a clear instruction or request.\n\n"
+    "If the user is just CHATTING or INFORMING about future plans "
+    "(e.g. \"I have a meeting on Monday\", \"I'll go to the gym tomorrow\") "
+    "— DO NOT treat this as a task — return an empty array.\n\n"
+    "If a task is found, return a JSON array, each element: "
+    "{{\"description\": \"...\", \"due_at\": \"YYYY-MM-DD HH:MM or YYYY-MM-DD or null\"}}. "
+    "Convert relative times like 'tomorrow', 'next Monday' to exact dates based on today. "
+    "{default_due_hint}"
+    "When in doubt, return an EMPTY array — better to miss a task than to add a false one. "
+    "Return ONLY the JSON array, nothing else."
 )
 
 
@@ -121,26 +118,26 @@ class AssistantClient:
         )
 
         prompt = (
-            f"Sening isming {name}. Sen foydalanuvchining shaxsiy yordamchisisan (Telegram bot orqali). "
-            f"Foydalanuvchi bilan {language} tilida, {tone} ohangda gaplash. {verbosity} {emoji} {energy} "
-            "Agar foydalanuvchi biror vazifa, eslatma yoki rejani aytsa, buni qayd etganingni "
-            "tabiiy tilda tasdiqla (masalan: 'Yozib qoldim!'). "
-            f"{NATURAL_UZBEK_GUIDE}"
+            f"Your name is {name}. You are the user's personal assistant (via Telegram bot). "
+            f"Communicate with the user in {language}, using a {tone} tone. {verbosity} {emoji} {energy} "
+            "If the user mentions a task, reminder, or plan, confirm you've noted it naturally "
+            "(e.g. 'Got it!' or 'Noted!'). "
+            f"{NATURAL_LANGUAGE_GUIDE}"
         )
 
         if nickname:
-            prompt += f" Foydalanuvchini '{nickname}' deb chaqir."
+            prompt += f" Address the user as '{nickname}'."
 
         if corrections:
             corrections_text = "\n".join(f"- {c}" for c in corrections)
             prompt += (
-                "\n\nMUHIM: foydalanuvchi avval quyidagi xatolarni ko'rsatib tuzatgan. "
-                f"Bularni HECH QACHON takrorlama:\n{corrections_text}"
+                "\n\nIMPORTANT: The user has flagged the following as mistakes to avoid. "
+                f"NEVER repeat them:\n{corrections_text}"
             )
 
         if facts:
             facts_text = "\n".join(f"- {f}" for f in facts)
-            prompt += f"\n\nFoydalanuvchi haqida bilganlaring:\n{facts_text}"
+            prompt += f"\n\nWhat you know about the user:\n{facts_text}"
 
         return prompt
 
@@ -171,7 +168,7 @@ class AssistantClient:
     async def extract_tasks(self, user_message: str, default_due_date: str | None = None) -> list[dict]:
         now = datetime.now(self.timezone).strftime("%Y-%m-%d %H:%M, %A")
         default_due_hint = (
-            f"Agar foydalanuvchi aniq sana aytmagan bo'lsa, sukut bo'yicha {default_due_date} sanasini ishlat. "
+            f"If no explicit date is given, default to {default_due_date}. "
             if default_due_date
             else ""
         )
@@ -196,9 +193,9 @@ class AssistantClient:
 
     async def describe_image(self, image_base64: str, caption: str, settings: dict[str, str] | None = None) -> str:
         text = caption or (
-            "Bu rasmda nima bor? O'zbek tilida tushuntir. "
-            "Agar rasmda matn, raqamlar yoki yozuv bo'lsa (hujjat, kvitansiya, jadval va h.k.), "
-            "ularni so'zma-so'z, aniq o'qib ber."
+            "What is in this image? Explain clearly. "
+            "If there is any text, numbers, or writing (document, receipt, table, etc.), "
+            "read it out word for word, accurately."
         )
         messages = [
             {
@@ -214,11 +211,11 @@ class AssistantClient:
         )
 
     async def compose_reminder(self, tasks: list[str], settings: dict[str, str] | None = None) -> str:
-        tasks_text = "\n".join(f"- {t}" for t in tasks) if tasks else "Yo'q."
+        tasks_text = "\n".join(f"- {t}" for t in tasks) if tasks else "None."
         prompt = (
-            f"Foydalanuvchining ochiq vazifalari:\n{tasks_text}\n\n"
-            "O'zbek tilida, juda qisqa (1-2 gap), do'stona va motivatsion eslatma yoz. "
-            "Eng yaqin/muhim vazifalarni qisqacha eslat va harakatga undash."
+            f"Open tasks:\n{tasks_text}\n\n"
+            "Write a very short (1-2 sentences), friendly, motivating reminder. "
+            "Briefly mention the most important/closest task and encourage action."
         )
         return await self._complete(
             self.build_system_prompt(settings), [{"role": "user", "content": prompt}], max_tokens=200
@@ -227,12 +224,12 @@ class AssistantClient:
     async def compose_digest(
         self, weather_summary: str, tasks: list[str], settings: dict[str, str] | None = None
     ) -> str:
-        tasks_text = "\n".join(f"- {t}" for t in tasks) if tasks else "Hozircha vazifalar yo'q."
+        tasks_text = "\n".join(f"- {t}" for t in tasks) if tasks else "No tasks yet."
         prompt = (
-            f"Ertalabki digest tayyorla. Ob-havo: {weather_summary}\n"
-            f"Ochiq vazifalar (bugungi va kelajakdagi):\n{tasks_text}\n\n"
-            "Foydalanuvchiga o'zbek tilida, qisqa, motivatsion ertalabki xabar yoz. "
-            "Ob-havo va vazifalar ro'yxatini aniq ko'rsat, qaysi vazifalar bugunga tegishli ekanini ajrat."
+            f"Write a morning digest. Weather: {weather_summary}\n"
+            f"Open tasks (today and upcoming):\n{tasks_text}\n\n"
+            "Write a short, motivating morning message. Clearly show the weather and tasks, "
+            "noting which are for today."
         )
         return await self._complete(
             self.build_system_prompt(settings), [{"role": "user", "content": prompt}], max_tokens=500
@@ -240,10 +237,9 @@ class AssistantClient:
 
     async def compose_planning_prompt(self, settings: dict[str, str] | None = None) -> str:
         prompt = (
-            "Kun yakunlanmoqda (quyosh botdi). Foydalanuvchidan ertaga yoki keyingi kunlarda "
-            "qilishi kerak bo'lgan ishlarni/vazifalarni so'ra (bir nechta bo'lishi mumkin). "
-            "O'zbek tilida, qisqa va do'stona yoz. "
-            "Oxirida shuni tushuntir: javobini shunchaki yozib yuborsa, ularni vazifa sifatida saqlab qo'yaman."
+            "The day is ending (sunset). Ask the user what tasks or plans they have for tomorrow "
+            "or the coming days (there can be multiple). Keep it short and friendly. "
+            "At the end, mention that if they just reply, you'll save their response as tasks."
         )
         return await self._complete(
             self.build_system_prompt(settings), [{"role": "user", "content": prompt}], max_tokens=200
@@ -252,13 +248,12 @@ class AssistantClient:
     async def compose_daily_summary(
         self, completed: list[str], planned_count: int, settings: dict[str, str] | None = None
     ) -> str:
-        completed_text = "\n".join(f"- {c}" for c in completed) if completed else "Hech narsa belgilanmagan."
+        completed_text = "\n".join(f"- {c}" for c in completed) if completed else "Nothing marked as done."
         prompt = (
-            f"Bugun bajarilgan ishlar ({len(completed)} ta):\n{completed_text}\n"
-            f"Bugunga rejalashtirilgan jami vazifalar: {planned_count} ta.\n\n"
-            "Kun yakuni uchun o'zbek tilida qisqa, samimiy xulosa yoz. Necha foiz bajarilganini "
-            "aytib, rag'batlantiruvchi ohangda yoz (yaxshi natija bo'lsa maqta, past bo'lsa "
-            "tushkunlikka tushirmasdan yengil undash)."
+            f"Tasks completed today ({len(completed)}):\n{completed_text}\n"
+            f"Total tasks planned for today: {planned_count}.\n\n"
+            "Write a short, sincere end-of-day summary. State the completion rate and write "
+            "in an encouraging tone (praise for good results, gently motivate if low)."
         )
         return await self._complete(
             self.build_system_prompt(settings), [{"role": "user", "content": prompt}], max_tokens=300
@@ -271,12 +266,12 @@ class AssistantClient:
         planned_count: int,
         settings: dict[str, str] | None = None,
     ) -> str:
-        rate = f"{round(100 * completed_count / planned_count)}%" if planned_count else "ma'lumot yo'q"
+        rate = f"{round(100 * completed_count / planned_count)}%" if planned_count else "no data"
         prompt = (
-            f"{period_label} uchun statistika: rejalashtirilgan vazifalar — {planned_count} ta, "
-            f"bajarilgan — {completed_count} ta, bajarilish foizi — {rate}.\n\n"
-            "Shu ma'lumotlar asosida o'zbek tilida qisqa tahliliy xulosa yoz — qanday natija "
-            "ko'rsatganini va keyingi davr uchun bitta qisqa tavsiya ber."
+            f"Stats for {period_label}: planned — {planned_count}, "
+            f"completed — {completed_count}, completion rate — {rate}.\n\n"
+            "Write a short analytical summary based on these numbers — how well they did, "
+            "and give one short recommendation for the next period."
         )
         return await self._complete(
             self.build_system_prompt(settings), [{"role": "user", "content": prompt}], max_tokens=350

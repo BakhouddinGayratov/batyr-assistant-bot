@@ -214,3 +214,12 @@ def get_corrections(chat_id: int, limit: int = 30) -> list[str]:
 def clear_corrections(chat_id: int):
     with get_conn(write=True) as conn:
         conn.execute("DELETE FROM corrections WHERE chat_id = ?", (chat_id,))
+
+
+def expire_overdue_tasks():
+    with get_conn(write=True) as conn:
+        conn.execute(
+            "UPDATE tasks SET done = 1, completed_at = ? "
+            "WHERE done = 0 AND due_at IS NOT NULL AND date(due_at) < date('now', 'localtime')",
+            (_now_local(),),
+        )

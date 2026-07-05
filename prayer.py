@@ -4,16 +4,16 @@ import httpx
 
 ALADHAN_URL = "https://api.aladhan.com/v1/timings/{date_str}"
 
-PRAYER_LABELS_UZ = {
-    "Fajr": "Bomdod",
-    "Sunrise": "Quyosh",
-    "Dhuhr": "Peshin",
+PRAYER_LABELS = {
+    "Fajr": "Fajr",
+    "Sunrise": "Sunrise",
+    "Dhuhr": "Dhuhr",
     "Asr": "Asr",
-    "Maghrib": "Shom",
-    "Isha": "Xufton",
+    "Maghrib": "Maghrib",
+    "Isha": "Isha",
 }
 
-PRAYER_ORDER = ["Bomdod", "Quyosh", "Peshin", "Asr", "Shom", "Xufton"]
+PRAYER_ORDER = ["Fajr", "Sunrise", "Dhuhr", "Asr", "Maghrib", "Isha"]
 
 
 async def get_prayer_times(
@@ -27,12 +27,12 @@ async def get_prayer_times(
         data = resp.json()
 
     timings = data["data"]["timings"]
-    return {label: timings[key].split(" ")[0] for key, label in PRAYER_LABELS_UZ.items()}
+    return {label: timings[key].split(" ")[0] for key, label in PRAYER_LABELS.items()}
 
 
 def format_prayer_times(times: dict[str, str]) -> str:
     lines = [f"{name}: {times[name]}" for name in PRAYER_ORDER if name in times]
-    return "🕋 Bugungi namaz vaqtlari:\n" + "\n".join(lines)
+    return "🕋 Today's Prayer Times:\n" + "\n".join(lines)
 
 
 def current_period_label(times: dict[str, str], now: datetime) -> str | None:
@@ -40,26 +40,26 @@ def current_period_label(times: dict[str, str], now: datetime) -> str | None:
         h, m = map(int, times[label].split(":"))
         return now.replace(hour=h, minute=m, second=0, microsecond=0)
 
-    bomdod = parse("Bomdod")
-    quyosh = parse("Quyosh")
-    peshin = parse("Peshin")
+    fajr = parse("Fajr")
+    sunrise = parse("Sunrise")
+    dhuhr = parse("Dhuhr")
     asr = parse("Asr")
-    shom = parse("Shom")
-    xufton = parse("Xufton")
+    maghrib = parse("Maghrib")
+    isha = parse("Isha")
 
-    zuho_start = quyosh + timedelta(minutes=20)
-    zuho_end = peshin - timedelta(minutes=10)
+    duha_start = sunrise + timedelta(minutes=20)
+    duha_end = dhuhr - timedelta(minutes=10)
 
-    if bomdod <= now < quyosh:
-        return "Bomdod namozi"
-    if zuho_start <= now < zuho_end:
-        return "Zuho namozi (nafl)"
-    if peshin <= now < asr:
-        return "Peshin namozi"
-    if asr <= now < shom:
-        return "Asr namozi"
-    if shom <= now < xufton:
-        return "Shom namozi va Avvobin nafli"
-    if now >= xufton:
-        return "Xufton namozi"
+    if fajr <= now < sunrise:
+        return "Fajr"
+    if duha_start <= now < duha_end:
+        return "Duha (nafl)"
+    if dhuhr <= now < asr:
+        return "Dhuhr"
+    if asr <= now < maghrib:
+        return "Asr"
+    if maghrib <= now < isha:
+        return "Maghrib"
+    if now >= isha:
+        return "Isha"
     return None

@@ -3,23 +3,23 @@ from datetime import datetime
 import httpx
 
 WEATHER_CODES = {
-    0: "ochiq havo",
-    1: "asosan ochiq",
-    2: "qisman bulutli",
-    3: "bulutli",
-    45: "tuman",
-    48: "muzli tuman",
-    51: "yengil yomg'ir",
-    53: "yomg'ir",
-    55: "kuchli yomg'ir",
-    61: "yomg'ir",
-    63: "yomg'ir",
-    65: "kuchli yomg'ir",
-    71: "qor",
-    73: "qor",
-    75: "kuchli qor",
-    80: "jala",
-    95: "momaqaldiroq",
+    0: "clear sky",
+    1: "mainly clear",
+    2: "partly cloudy",
+    3: "overcast",
+    45: "fog",
+    48: "icy fog",
+    51: "light drizzle",
+    53: "drizzle",
+    55: "heavy drizzle",
+    61: "rain",
+    63: "rain",
+    65: "heavy rain",
+    71: "snow",
+    73: "snow",
+    75: "heavy snow",
+    80: "rain shower",
+    95: "thunderstorm",
 }
 
 
@@ -41,13 +41,13 @@ async def get_weather_summary(latitude: float, longitude: float) -> str:
     daily = data.get("daily", {})
     temp_now = current.get("temperature_2m")
     code = current.get("weather_code")
-    condition = WEATHER_CODES.get(code, "noma'lum")
+    condition = WEATHER_CODES.get(code, "unknown")
     temp_max = daily.get("temperature_2m_max", [None])[0]
     temp_min = daily.get("temperature_2m_min", [None])[0]
 
     return (
-        f"Hozir: {temp_now}°C, {condition}. "
-        f"Bugun: min {temp_min}°C / max {temp_max}°C."
+        f"Now: {temp_now}°C, {condition}. "
+        f"Today: min {temp_min}°C / max {temp_max}°C."
     )
 
 

@@ -23,63 +23,64 @@ from scheduler import start_scheduler
 logger = logging.getLogger(__name__)
 
 BOT_COMMANDS = [
-    BotCommand("start", "Botni ishga tushirish"),
-    BotCommand("help", "Buyruqlar ro'yxati"),
-    BotCommand("menu", "Asosiy menyu"),
-    BotCommand("tasks", "Ochiq vazifalarni ko'rish"),
-    BotCommand("done", "Vazifani bajarildi deb belgilash"),
-    BotCommand("delete", "Vazifani butunlay o'chirish"),
-    BotCommand("stats", "Bugun/hafta/oy bo'yicha statistikani ko'rish"),
-    BotCommand("namaz", "Bugungi namaz vaqtlarini ko'rish (hanafiy)"),
-    BotCommand("rate", "Valyuta kursini bilish"),
-    BotCommand("plan", "Ertaga/kelajak uchun vazifa(lar) qo'shish"),
-    BotCommand("settings", "Yordamchini sozlash (ism, ohang, til)"),
-    BotCommand("forget", "Men haqimda eslab qolgan ma'lumotlarni o'chirish"),
-    BotCommand("correct", "Xatosini ko'rsatish, bot uni qaytarmaydi"),
-    BotCommand("corrections", "Tuzatilgan xatolar ro'yxati"),
+    BotCommand("start", "Start the bot"),
+    BotCommand("help", "List of commands"),
+    BotCommand("menu", "Main menu"),
+    BotCommand("tasks", "View open tasks"),
+    BotCommand("done", "Mark a task as done"),
+    BotCommand("delete", "Delete a task"),
+    BotCommand("stats", "View stats for today/week/month"),
+    BotCommand("namaz", "View today's prayer times (Hanafi)"),
+    BotCommand("rate", "Get currency exchange rate"),
+    BotCommand("plan", "Add tasks for tomorrow / future"),
+    BotCommand("settings", "Configure the assistant"),
+    BotCommand("forget", "Clear remembered facts about you"),
+    BotCommand("correct", "Point out a mistake to avoid"),
+    BotCommand("corrections", "List of noted corrections"),
 ]
 
-VALID_TONES = {"samimiy", "rasmiy", "hazil"}
-VALID_VERBOSITY = {"qisqa", "batafsil"}
-VALID_EMOJI = {"yoq", "oz", "kop"}
+VALID_TONES = {"friendly", "formal", "humorous"}
+VALID_VERBOSITY = {"brief", "detailed"}
+VALID_EMOJI = {"none", "few", "many"}
 
 SETTINGS_HELP = (
-    "Sozlamalar:\n"
-    "/settings name <ism> — yordamchi ismini o'zgartirish\n"
-    "/settings tone samimiy|rasmiy|hazil — gaplashish ohangi\n"
-    "/settings verbosity qisqa|batafsil — javoblar uzunligi\n"
-    "/settings emoji yoq|oz|kop — emoji ishlatish darajasi\n"
-    "/settings nickname <laqab> — sizni qanday chaqirishini belgilash\n"
-    "/settings language <til> — masalan: o'zbek, rus, ingliz\n"
-    "/settings show — hozirgi sozlamalarni ko'rish"
+    "Settings:\n"
+    "/settings name <name> — change assistant name\n"
+    "/settings tone friendly|formal|humorous — conversation tone\n"
+    "/settings verbosity brief|detailed — response length\n"
+    "/settings emoji none|few|many — emoji usage level\n"
+    "/settings nickname <nickname> — how to address you\n"
+    "/settings language <language> — e.g. English, Russian, Uzbek\n"
+    "/settings show — view current settings"
 )
 
 HELP_TEXT = (
-    "Men nimalar qila olaman:\n\n"
-    "💬 Oddiy yozing — suhbatlashamiz\n"
-    "📝 \"eslab qol: ertaga 14:00 trening\" kabi yozing — vazifa sifatida saqlayman\n"
-    "📋 /tasks — ochiq vazifalarni ko'rish\n"
-    "✅ /done <raqam> — vazifani bajarildi deb belgilash\n"
-    "🗑 /delete <raqam> — vazifani butunlay o'chirish\n"
-    "📊 /stats bugun|hafta|oy — bajarish statistikasini ko'rish\n"
-    "🕋 /namaz — bugungi namaz vaqtlarini ko'rish (hanafiy hisoblash)\n"
-    "💱 /rate USD UZS — valyuta kursi\n"
-    "🎯 /plan <matn> — ertaga/kelajak uchun vazifa(lar) qo'shish\n"
-    "🌅 Har kuni quyosh botganda ertangi/kelajakdagi ishlar haqida so'rayman\n"
-    "🎙 Ovozli xabar yuboring — tushunaman va javob beraman\n"
-    "🖼 Rasm yuboring (hujjat, kvitansiya va h.k.) — o'qib/tushuntirib beraman\n"
-    "🌤 Har kuni ertalab ob-havo, namaz vaqtlari va vazifalar bilan digest yuboraman\n"
-    "🕋 Har soat namaz/nafl vaqtlari haqida eslatib turaman\n"
-    "⚙️ /settings — meni o'zingizga moslab sozlash (ism, ohang, til)\n"
-    "🧠 Suhbat davomida sizning haqingizda muhim narsalarni eslab qolaman\n"
-    "🛠 /correct <xato va to'g'risi> — xatomni ko'rsating, qaytarmayman"
+    "What I can do:\n\n"
+    "💬 Just write — we'll have a conversation\n"
+    "📝 Write 'remind me: gym at 14:00 tomorrow' — I'll save it as a task\n"
+    "📋 /tasks — view open tasks\n"
+    "✅ /done <number> — mark a task as done\n"
+    "🗑 /delete <number> — delete a task\n"
+    "📊 /stats today|week|month — view completion stats\n"
+    "🕋 /namaz — view today's prayer times (Hanafi)\n"
+    "💱 /rate USD UZS — currency exchange rate\n"
+    "🎯 /plan <text> — add tasks for tomorrow / future\n"
+    "🌅 Every day at sunset I'll ask about your plans for tomorrow\n"
+    "🎙 Send a voice message — I'll understand and reply\n"
+    "🖼 Send a photo (document, receipt, etc.) — I'll read and explain it\n"
+    "🌤 Every morning I'll send a digest with weather, prayer times, and tasks\n"
+    "🕋 I'll remind you at each prayer time\n"
+    "⏰ Hourly task reminders from 3:00 to 23:00\n"
+    "⚙️ /settings — customize me (name, tone, language)\n"
+    "🧠 I'll remember important things about you during our conversation\n"
+    "🛠 /correct <mistake and what to do instead> — point out a mistake"
 )
 
 MENU_KEYBOARD = InlineKeyboardMarkup(
     [
-        [InlineKeyboardButton("📋 Vazifalar", callback_data="menu:tasks")],
-        [InlineKeyboardButton("💱 Valyuta kursi", callback_data="menu:rate")],
-        [InlineKeyboardButton("ℹ️ Yordam", callback_data="menu:help")],
+        [InlineKeyboardButton("📋 Tasks", callback_data="menu:tasks")],
+        [InlineKeyboardButton("💱 Exchange Rate", callback_data="menu:rate")],
+        [InlineKeyboardButton("ℹ️ Help", callback_data="menu:help")],
     ]
 )
 
@@ -88,17 +89,17 @@ def format_tasks_grouped(tasks: list[tuple]) -> str:
     today = date.today().isoformat()
     tomorrow = (date.today() + timedelta(days=1)).isoformat()
 
-    groups: dict[str, list[str]] = {"Bugun": [], "Ertaga": [], "Kelajakda": [], "Sanasiz": []}
+    groups: dict[str, list[str]] = {"Today": [], "Tomorrow": [], "Upcoming": [], "No date": []}
     for tid, desc, due in tasks:
         line = f"#{tid}: {desc}"
         if not due:
-            groups["Sanasiz"].append(line)
+            groups["No date"].append(line)
         elif due.startswith(today):
-            groups["Bugun"].append(line)
+            groups["Today"].append(line)
         elif due.startswith(tomorrow):
-            groups["Ertaga"].append(line)
+            groups["Tomorrow"].append(line)
         else:
-            groups["Kelajakda"].append(f"{line} ({due})")
+            groups["Upcoming"].append(f"{line} ({due})")
 
     sections = []
     for label, lines in groups.items():
@@ -110,8 +111,8 @@ def format_tasks_grouped(tasks: list[tuple]) -> str:
 async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
     chat_id = update.effective_chat.id
     await update.message.reply_text(
-        f"Salom! Men sizning yordamchingizman.\nSizning chat_id: {chat_id}\n"
-        "Bu raqamni .env faylidagi OWNER_CHAT_ID ga qo'ying."
+        f"Hi! I'm your personal assistant.\nYour chat_id: {chat_id}\n"
+        "Add this to OWNER_CHAT_ID in your .env file."
     )
 
 
@@ -120,7 +121,7 @@ async def help_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
 
 async def menu_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    await update.message.reply_text("Asosiy menyu:", reply_markup=MENU_KEYBOARD)
+    await update.message.reply_text("Main menu:", reply_markup=MENU_KEYBOARD)
 
 
 async def menu_callback(update: Update, context: ContextTypes.DEFAULT_TYPE):
@@ -131,11 +132,11 @@ async def menu_callback(update: Update, context: ContextTypes.DEFAULT_TYPE):
     if query.data == "menu:tasks":
         tasks = storage.get_open_tasks(chat_id)
         if not tasks:
-            await query.message.reply_text("Ochiq vazifalar yo'q.")
+            await query.message.reply_text("No open tasks.")
         else:
             await query.message.reply_text(format_tasks_grouped(tasks))
     elif query.data == "menu:rate":
-        await query.message.reply_text("Yozing: /rate USD UZS (yoki boshqa valyuta kodlari)")
+        await query.message.reply_text("Type: /rate USD UZS (or other currency codes)")
     elif query.data == "menu:help":
         await query.message.reply_text(HELP_TEXT)
 
@@ -144,7 +145,7 @@ async def list_tasks(update: Update, context: ContextTypes.DEFAULT_TYPE):
     chat_id = update.effective_chat.id
     tasks = storage.get_open_tasks(chat_id)
     if not tasks:
-        await update.message.reply_text("Ochiq vazifalar yo'q.")
+        await update.message.reply_text("No open tasks.")
         return
     await update.message.reply_text(format_tasks_grouped(tasks))
 
@@ -153,57 +154,57 @@ async def done_task(update: Update, context: ContextTypes.DEFAULT_TYPE):
     chat_id = update.effective_chat.id
     args = context.args
     if not args or not args[0].isdigit():
-        await update.message.reply_text("Foydalanish: /done <raqam>, masalan /done 3")
+        await update.message.reply_text("Usage: /done <number>, e.g. /done 3")
         return
     task_id = int(args[0])
     storage.complete_task(chat_id, task_id)
-    await update.message.reply_text(f"#{task_id} bajarildi deb belgilandi.")
+    await update.message.reply_text(f"#{task_id} marked as done.")
 
 
 async def delete_task_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
     chat_id = update.effective_chat.id
     args = context.args
     if not args or not args[0].isdigit():
-        await update.message.reply_text("Foydalanish: /delete <raqam>, masalan /delete 3")
+        await update.message.reply_text("Usage: /delete <number>, e.g. /delete 3")
         return
     task_id = int(args[0])
     storage.delete_task(chat_id, task_id)
-    await update.message.reply_text(f"#{task_id} o'chirildi.")
+    await update.message.reply_text(f"#{task_id} deleted.")
 
 
 async def stats_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
     claude: AssistantClient = context.application.bot_data["claude"]
     chat_id = update.effective_chat.id
-    period = (context.args[0].lower() if context.args else "bugun")
+    period = (context.args[0].lower() if context.args else "today")
     settings = storage.get_settings(chat_id)
     today = date.today()
 
-    if period in ("bugun", "today"):
-        start = end = today.isoformat()
-        completed_rows = storage.get_completed_tasks_between(chat_id, start, end)
-        planned = storage.count_planned_tasks_between(chat_id, start, end)
+    if period in ("today", "bugun"):
+        start_date = end_date = today.isoformat()
+        completed_rows = storage.get_completed_tasks_between(chat_id, start_date, end_date)
+        planned = storage.count_planned_tasks_between(chat_id, start_date, end_date)
         text = await claude.compose_daily_summary(
             [desc for desc, _, _ in completed_rows], planned, settings=settings
         )
-    elif period in ("hafta", "week"):
-        start = (today - timedelta(days=6)).isoformat()
-        end = today.isoformat()
-        completed_rows = storage.get_completed_tasks_between(chat_id, start, end)
-        planned = storage.count_planned_tasks_between(chat_id, start, end)
+    elif period in ("week", "hafta"):
+        start_date = (today - timedelta(days=6)).isoformat()
+        end_date = today.isoformat()
+        completed_rows = storage.get_completed_tasks_between(chat_id, start_date, end_date)
+        planned = storage.count_planned_tasks_between(chat_id, start_date, end_date)
         text = await claude.compose_period_analytics(
-            "So'nggi 7 kun", len(completed_rows), planned, settings=settings
+            "Last 7 days", len(completed_rows), planned, settings=settings
         )
-    elif period in ("oy", "month"):
-        start = today.replace(day=1).isoformat()
-        end = today.isoformat()
-        completed_rows = storage.get_completed_tasks_between(chat_id, start, end)
-        planned = storage.count_planned_tasks_between(chat_id, start, end)
+    elif period in ("month", "oy"):
+        start_date = today.replace(day=1).isoformat()
+        end_date = today.isoformat()
+        completed_rows = storage.get_completed_tasks_between(chat_id, start_date, end_date)
+        planned = storage.count_planned_tasks_between(chat_id, start_date, end_date)
         label = calendar.month_name[today.month]
         text = await claude.compose_period_analytics(
-            f"{label} oyi (hozirgacha)", len(completed_rows), planned, settings=settings
+            f"{label} (so far)", len(completed_rows), planned, settings=settings
         )
     else:
-        await update.message.reply_text("Foydalanish: /stats bugun|hafta|oy")
+        await update.message.reply_text("Usage: /stats today|week|month")
         return
 
     await update.message.reply_text(text)
@@ -214,15 +215,15 @@ async def namaz_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
     longitude = context.application.bot_data["longitude"]
     try:
         times = await get_prayer_times(latitude, longitude, date.today())
-        await update.message.reply_text(format_prayer_times(times) + "\n\n(Hisoblash: hanafiy maktab)")
+        await update.message.reply_text(format_prayer_times(times) + "\n\n(Method: Hanafi)")
     except Exception:
-        await update.message.reply_text("Namaz vaqtlarini olib bo'lmadi, birozdan keyin urinib ko'ring.")
+        await update.message.reply_text("Couldn't fetch prayer times, please try again later.")
 
 
 async def rate_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
     args = context.args
     if len(args) != 2:
-        await update.message.reply_text("Foydalanish: /rate USD UZS")
+        await update.message.reply_text("Usage: /rate USD UZS")
         return
     base, target = args[0].upper(), args[1].upper()
     try:
@@ -230,7 +231,7 @@ async def rate_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
         await update.message.reply_text(f"1 {base} = {rate:.2f} {target}")
     except Exception:
         await update.message.reply_text(
-            "Kursni topib bo'lmadi. Valyuta kodlarini tekshiring (masalan: USD, EUR, UZS)."
+            "Couldn't find the rate. Check the currency codes (e.g. USD, EUR, UZS)."
         )
 
 
@@ -240,16 +241,15 @@ async def settings_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
     if not args or args[0] == "show":
         settings = storage.get_settings(chat_id)
-        default_language = "o'zbek"
         lines = [
-            f"Ism: {settings.get('name', 'Jarvis')}",
-            f"Ohang: {settings.get('tone', 'samimiy')}",
-            f"Javob uzunligi: {settings.get('verbosity', 'qisqa')}",
-            f"Emoji: {settings.get('emoji', 'oz')}",
-            f"Laqabingiz: {settings.get('nickname', 'belgilanmagan')}",
-            f"Til: {settings.get('language', default_language)}",
+            f"Name: {settings.get('name', 'Jarvis')}",
+            f"Tone: {settings.get('tone', 'friendly')}",
+            f"Response length: {settings.get('verbosity', 'brief')}",
+            f"Emoji: {settings.get('emoji', 'few')}",
+            f"Your nickname: {settings.get('nickname', 'not set')}",
+            f"Language: {settings.get('language', 'English')}",
         ]
-        await update.message.reply_text("Hozirgi sozlamalar:\n" + "\n".join(lines) + "\n\n" + SETTINGS_HELP)
+        await update.message.reply_text("Current settings:\n" + "\n".join(lines) + "\n\n" + SETTINGS_HELP)
         return
 
     key = args[0].lower()
@@ -257,22 +257,22 @@ async def settings_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
     if key == "name" and value:
         storage.set_setting(chat_id, "name", value)
-        await update.message.reply_text(f"Ismimni {value} deb belgiladim.")
+        await update.message.reply_text(f"Name set to {value}.")
     elif key == "tone" and value.lower() in VALID_TONES:
         storage.set_setting(chat_id, "tone", value.lower())
-        await update.message.reply_text(f"Ohangni {value} qilib o'zgartirdim.")
+        await update.message.reply_text(f"Tone changed to {value}.")
     elif key == "verbosity" and value.lower() in VALID_VERBOSITY:
         storage.set_setting(chat_id, "verbosity", value.lower())
-        await update.message.reply_text(f"Javob uzunligini {value} qilib o'zgartirdim.")
+        await update.message.reply_text(f"Response length changed to {value}.")
     elif key == "emoji" and value.lower() in VALID_EMOJI:
         storage.set_setting(chat_id, "emoji", value.lower())
-        await update.message.reply_text(f"Emoji darajasini {value} qilib o'zgartirdim.")
+        await update.message.reply_text(f"Emoji level changed to {value}.")
     elif key == "nickname" and value:
         storage.set_setting(chat_id, "nickname", value)
-        await update.message.reply_text(f"Endi sizni '{value}' deb chaqiraman.")
+        await update.message.reply_text(f"I'll address you as '{value}' now.")
     elif key == "language" and value:
         storage.set_setting(chat_id, "language", value)
-        await update.message.reply_text(f"Tilni {value} qilib o'zgartirdim.")
+        await update.message.reply_text(f"Language changed to {value}.")
     else:
         await update.message.reply_text(SETTINGS_HELP)
 
@@ -280,7 +280,7 @@ async def settings_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
 async def forget_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
     chat_id = update.effective_chat.id
     storage.clear_facts(chat_id)
-    await update.message.reply_text("Siz haqingizda eslab qolgan ma'lumotlarni o'chirdim.")
+    await update.message.reply_text("Cleared all remembered facts about you.")
 
 
 async def correct_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
@@ -288,22 +288,22 @@ async def correct_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
     text = " ".join(context.args).strip()
     if not text:
         await update.message.reply_text(
-            "Foydalanish: /correct <nima xato edi va o'rniga nima qilishim kerak>\n"
-            "Masalan: /correct \"rasmiy gapirma\" demang, har doim samimiy va sodda gapir"
+            "Usage: /correct <what was wrong and what to do instead>\n"
+            "Example: /correct don't be formal, always be casual and simple"
         )
         return
     storage.add_correction(chat_id, text)
-    await update.message.reply_text("Tuzatdim, bundan keyin shunga amal qilaman.")
+    await update.message.reply_text("Got it, I'll keep that in mind.")
 
 
 async def corrections_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
     chat_id = update.effective_chat.id
     corrections = storage.get_corrections(chat_id)
     if not corrections:
-        await update.message.reply_text("Hozircha tuzatilgan xatolar yo'q.")
+        await update.message.reply_text("No corrections noted yet.")
         return
     lines = [f"- {c}" for c in corrections]
-    await update.message.reply_text("Tuzatilgan xatolar:\n" + "\n".join(lines))
+    await update.message.reply_text("Noted corrections:\n" + "\n".join(lines))
 
 
 async def _store_tasks_from_text(
@@ -326,7 +326,7 @@ async def _store_tasks_from_text(
 def _rejected_tasks_note(rejected: list[dict]) -> str:
     lines = [f"- {t['description']} ({t.get('due_at')})" for t in rejected]
     return (
-        "O'tmishdagi sanaga vazifa qo'sha olmayman, faqat bugun yoki kelajak uchun reja yozish mumkin:\n"
+        "I can only add tasks for today or the future, not past dates:\n"
         + "\n".join(lines)
     )
 
@@ -336,17 +336,17 @@ async def plan_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
     chat_id = update.effective_chat.id
     text = " ".join(context.args)
     if not text:
-        await update.message.reply_text("Foydalanish: /plan <ertaga/kelajakda qilishingiz kerak bo'lgan ish(lar)>")
+        await update.message.reply_text("Usage: /plan <tasks for tomorrow or future>")
         return
     tomorrow = (date.today() + timedelta(days=1)).isoformat()
     stored, rejected = await _store_tasks_from_text(claude, chat_id, text, default_due_date=tomorrow)
     if not stored and not rejected:
-        await update.message.reply_text("Vazifa aniqlay olmadim, boshqacha yozib ko'ring.")
+        await update.message.reply_text("Couldn't identify a task, try rephrasing.")
         return
     parts = []
     if stored:
         lines = [f"- {t['description']}" + (f" ({t.get('due_at')})" if t.get("due_at") else "") for t in stored]
-        parts.append("Saqladim:\n" + "\n".join(lines))
+        parts.append("Saved:\n" + "\n".join(lines))
     if rejected:
         parts.append(_rejected_tasks_note(rejected))
     await update.message.reply_text("\n\n".join(parts))
@@ -417,14 +417,14 @@ async def handle_message(update: Update, context: ContextTypes.DEFAULT_TYPE):
             claude, chat_id, update.message.text, default_due_date=tomorrow
         )
         if not stored and not rejected:
-            await update.message.reply_text("Vazifa aniqlay olmadim, boshqacha yozib ko'ring.")
+            await update.message.reply_text("Couldn't identify a task, try rephrasing.")
             return
         parts = []
         if stored:
             lines = [
                 f"- {t['description']}" + (f" ({t.get('due_at')})" if t.get("due_at") else "") for t in stored
             ]
-            parts.append("Saqladim:\n" + "\n".join(lines))
+            parts.append("Saved:\n" + "\n".join(lines))
         if rejected:
             parts.append(_rejected_tasks_note(rejected))
         await update.message.reply_text("\n\n".join(parts))
@@ -437,7 +437,7 @@ async def handle_message(update: Update, context: ContextTypes.DEFAULT_TYPE):
         )
     except Exception:
         logger.exception("Failed to process text message for chat %s", chat_id)
-        await update.message.reply_text("Uzr, javob berishda xatolik yuz berdi. Birozdan keyin qayta urinib ko'ring.")
+        await update.message.reply_text("Sorry, something went wrong. Please try again.")
         return
     await update.message.reply_text(reply)
 
@@ -458,7 +458,7 @@ async def handle_voice(update: Update, context: ContextTypes.DEFAULT_TYPE):
         )
     except Exception:
         logger.exception("Failed to process voice message for chat %s", chat_id)
-        await update.message.reply_text("Uzr, ovozli xabarni qayta ishlab bo'lmadi. Birozdan keyin qayta urinib ko'ring.")
+        await update.message.reply_text("Sorry, couldn't process the voice message. Please try again.")
         return
     await update.message.reply_text(f"🎙 {transcript}\n\n{reply}")
 
@@ -478,7 +478,7 @@ async def handle_photo(update: Update, context: ContextTypes.DEFAULT_TYPE):
         reply = await claude.describe_image(image_base64, caption, settings=settings)
     except Exception:
         logger.exception("Failed to process photo for chat %s", chat_id)
-        await update.message.reply_text("Uzr, rasmni qayta ishlab bo'lmadi. Birozdan keyin qayta urinib ko'ring.")
+        await update.message.reply_text("Sorry, couldn't process the photo. Please try again.")
         return
     await update.message.reply_text(reply)
 
@@ -500,12 +500,14 @@ async def _error_handler(update: object, context: ContextTypes.DEFAULT_TYPE):
     logger.error("Unhandled exception while processing update %s", update, exc_info=context.error)
     if isinstance(update, Update) and update.effective_message:
         await update.effective_message.reply_text(
-            "Uzr, kutilmagan xatolik yuz berdi. Birozdan keyin qayta urinib ko'ring."
+            "Sorry, an unexpected error occurred. Please try again."
         )
 
 
 def build_application(token: str, claude: AssistantClient) -> Application:
-    application = Application.builder().token(token).post_init(_post_init).post_shutdown(_post_shutdown).build()
+    application = (
+        Application.builder().token(token).post_init(_post_init).post_shutdown(_post_shutdown).build()
+    )
     application.bot_data["claude"] = claude
 
     application.add_handler(CommandHandler("start", start))
