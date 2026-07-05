@@ -24,8 +24,6 @@ def main():
     owner_chat_id = os.environ.get("OWNER_CHAT_ID")
     digest_hour = int(os.environ.get("DIGEST_HOUR", 9))
     digest_minute = int(os.environ.get("DIGEST_MINUTE", 0))
-    reminder_start_hour = int(os.environ.get("REMINDER_START_HOUR", 9))
-    reminder_end_hour = int(os.environ.get("REMINDER_END_HOUR", 21))
     timezone = os.environ.get("TIMEZONE", "Asia/Tashkent")
     latitude = float(os.environ.get("LATITUDE", 41.2995))
     longitude = float(os.environ.get("LONGITUDE", 69.2401))
@@ -44,8 +42,6 @@ def main():
             timezone=timezone,
             latitude=latitude,
             longitude=longitude,
-            reminder_start_hour=reminder_start_hour,
-            reminder_end_hour=reminder_end_hour,
         )
     else:
         logger.warning(

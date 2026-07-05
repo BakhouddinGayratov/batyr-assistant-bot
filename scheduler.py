@@ -9,7 +9,7 @@ from telegram.ext import Application
 
 import storage
 from ai_client import AssistantClient
-from prayer import current_period_label, format_prayer_times, get_prayer_times
+from prayer import format_prayer_times, get_prayer_times
 from weather import get_sunset, get_weather_summary
 
 logger = logging.getLogger(__name__)
@@ -24,8 +24,6 @@ def start_scheduler(
     timezone: str,
     latitude: float,
     longitude: float,
-    reminder_start_hour: int = 9,
-    reminder_end_hour: int = 21,
     daily_summary_hour: int = 22,
     daily_summary_minute: int = 30,
     weekly_summary_dow: str = "sun",
@@ -56,26 +54,40 @@ def start_scheduler(
         except Exception:
             logger.exception("Failed to send daily digest")
 
-    async def send_reminder():
+    PRAYER_NAMES = ["Bomdod", "Peshin", "Asr", "Shom", "Xufton"]
+
+    async def send_prayer_reminder(prayer_name: str):
         try:
             tasks = [desc for _, desc, _ in storage.get_open_tasks(owner_chat_id)]
             settings = storage.get_settings(owner_chat_id)
-
-            prayer_times = await get_prayer_times(latitude, longitude, date.today())
-            now = datetime.now(scheduler.timezone)
-            period = current_period_label(prayer_times, now)
-
-            parts = []
-            if period:
-                parts.append(f"🕋 Hozir {period} payti.")
+            parts = [f"🕋 {prayer_name} namozi vaqti keldi!"]
             if tasks:
                 parts.append(await claude.compose_reminder(tasks, settings=settings))
-
-            if not parts:
-                return
             await application.bot.send_message(chat_id=owner_chat_id, text="\n\n".join(parts))
         except Exception:
-            logger.exception("Failed to send hourly reminder")
+            logger.exception("Failed to send prayer reminder for %s", prayer_name)
+
+    async def schedule_today_prayer_reminders():
+        try:
+            prayer_times = await get_prayer_times(latitude, longitude, date.today())
+            now = datetime.now(scheduler.timezone)
+            for prayer_name in PRAYER_NAMES:
+                time_str = prayer_times.get(prayer_name)
+                if not time_str:
+                    continue
+                h, m = map(int, time_str.split(":"))
+                run_date = now.replace(hour=h, minute=m, second=0, microsecond=0)
+                if run_date <= now:
+                    continue
+                scheduler.add_job(
+                    send_prayer_reminder,
+                    "date",
+                    run_date=run_date,
+                    args=[prayer_name],
+                )
+                logger.info("Scheduled %s reminder at %s", prayer_name, run_date.strftime("%H:%M"))
+        except Exception:
+            logger.exception("Failed to schedule today's prayer reminders")
 
     async def send_planning_prompt():
         try:
@@ -141,10 +153,7 @@ def start_scheduler(
             logger.exception("Failed to schedule sunset planning prompt")
 
     scheduler.add_job(send_digest, CronTrigger(hour=hour, minute=minute))
-    scheduler.add_job(
-        send_reminder,
-        CronTrigger(hour=f"{reminder_start_hour}-{reminder_end_hour}", minute=0),
-    )
+    scheduler.add_job(schedule_today_prayer_reminders, CronTrigger(hour=0, minute=1))
     scheduler.add_job(schedule_today_sunset_prompt, CronTrigger(hour=0, minute=5))
     scheduler.add_job(send_daily_summary, CronTrigger(hour=daily_summary_hour, minute=daily_summary_minute))
     scheduler.add_job(
@@ -156,9 +165,7 @@ def start_scheduler(
         CronTrigger(day=monthly_summary_day, hour=monthly_summary_hour, minute=monthly_summary_minute),
     )
     scheduler.start()
-    scheduler.add_job(
-        schedule_today_sunset_prompt,
-        "date",
-        run_date=datetime.now(scheduler.timezone) + timedelta(seconds=5),
-    )
+    startup = datetime.now(scheduler.timezone) + timedelta(seconds=5)
+    scheduler.add_job(schedule_today_prayer_reminders, "date", run_date=startup)
+    scheduler.add_job(schedule_today_sunset_prompt, "date", run_date=startup + timedelta(seconds=2))
     return scheduler
