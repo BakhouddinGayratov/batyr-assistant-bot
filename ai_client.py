@@ -1,4 +1,5 @@
 import json
+import logging
 import os
 from datetime import datetime
 from zoneinfo import ZoneInfo
@@ -7,9 +8,17 @@ import httpx
 
 OPENROUTER_URL = "https://openrouter.ai/api/v1/chat/completions"
 GROQ_TRANSCRIBE_URL = "https://api.groq.com/openai/v1/audio/transcriptions"
-# OpenRouter auto-router: har so'rovda eng tez ishlayotgan bepul modelga yo'naltiradi.
-MODEL = "openrouter/free"
+# OpenRouter bepul modellari — har so'rovda ketma-ket sinanadi:
+# biri ishlamasa (429/5xx/taym-aut) keyingisiga o'tiladi.
+# Ro'yxatni https://openrouter.ai/api/v1/models orqali yangilash mumkin.
+MODELS = [
+    "openai/gpt-oss-20b:free",
+    "google/gemma-4-31b-it:free",
+    "nvidia/nemotron-3-ultra-550b-a55b:free",
+]
 TRANSCRIBE_MODEL = "whisper-large-v3-turbo"
+
+logger = logging.getLogger(__name__)
 
 DEFAULT_NAME = "Jarvis"
 DEFAULT_TONE = "friendly"
@@ -97,15 +106,33 @@ class AssistantClient:
         if self._groq_client is not None:
             await self._groq_client.aclose()
 
-    async def _complete(self, system: str, messages: list[dict], max_tokens: int = 600, model: str = MODEL) -> str:
-        payload = {
-            "model": model,
-            "max_tokens": max_tokens,
-            "messages": [{"role": "system", "content": system}] + messages,
-        }
-        resp = await self._client.post(OPENROUTER_URL, json=payload)
-        resp.raise_for_status()
-        return resp.json()["choices"][0]["message"]["content"]
+    async def _complete(
+        self, system: str, messages: list[dict], max_tokens: int = 600, models: list[str] | None = None
+    ) -> str:
+        models = models or MODELS
+        last_error: Exception | None = None
+        for model in models:
+            try:
+                payload = {
+                    "model": model,
+                    "max_tokens": max_tokens,
+                    "messages": [{"role": "system", "content": system}] + messages,
+                }
+                resp = await self._client.post(OPENROUTER_URL, json=payload)
+                resp.raise_for_status()
+                return resp.json()["choices"][0]["message"]["content"]
+            except Exception as exc:
+                detail = ""
+                if isinstance(exc, httpx.HTTPStatusError):
+                    try:
+                        detail = exc.response.json().get("error", {}).get("message", "")
+                    except Exception:
+                        pass
+                logger.warning(
+                    "Model %s failed: %s%s — trying next", model, type(exc).__name__, f": {detail}" if detail else ""
+                )
+                last_error = exc
+        raise last_error
 
     def build_system_prompt(
         self,

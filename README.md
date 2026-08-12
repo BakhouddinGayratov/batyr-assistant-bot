@@ -1,6 +1,6 @@
 # Batyr Assistant Bot
 
-Telegram bot powered by OpenRouter's free auto-router (`openrouter/free`) — it picks the fastest available free model (Llama, Qwen, Mistral, etc.) for every request, so the bot keeps working even when one model hits its rate limit. v1 features:
+Telegram bot powered by OpenRouter's free models. It tries three free models in order (`openai/gpt-oss-20b:free`, `google/gemma-4-31b-it:free`, `nvidia/nemotron-3-ultra-550b-a55b:free`) and automatically falls back to the next one if a model is rate-limited or unavailable. v1 features:
 - 1-on-1 chat with the assistant (remembers recent conversation)
 - Plain-language task capture ("eslab qol: ertaga 14:00 trening")
 - `/tasks` — list open tasks
@@ -16,7 +16,7 @@ Deferred to v2: Google Calendar sync, group-chat tracking.
 ## 2. Get a free OpenRouter API key
 1. Go to https://openrouter.ai/settings/keys
 2. Sign in (free, no credit card required), create an API key, copy it.
-3. The bot uses the `openrouter/free` auto-router, which routes each request to the fastest available free model — no cost, and it fails over automatically when a model hits its rate limit.
+3. The bot tries three free models in order (`openai/gpt-oss-20b:free`, `google/gemma-4-31b-it:free`, `nvidia/nemotron-3-ultra-550b-a55b:free`) and falls back automatically if one is rate-limited or down — no cost. To see the current free models: `curl https://openrouter.ai/api/v1/models | grep '"prompt": "0"'`.
 4. Optional: keep a Groq API key (https://console.groq.com/keys) as `GROQ_API_KEY` if you want **voice messages** — OpenRouter doesn't offer audio transcription, so the bot uses Groq's free Whisper for that.
 
 ## 3. Get a free persistent database (Turso)
