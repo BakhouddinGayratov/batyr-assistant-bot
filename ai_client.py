@@ -5,10 +5,10 @@ from zoneinfo import ZoneInfo
 
 import httpx
 
-GROQ_URL = "https://api.groq.com/openai/v1/chat/completions"
+OPENROUTER_URL = "https://openrouter.ai/api/v1/chat/completions"
 GROQ_TRANSCRIBE_URL = "https://api.groq.com/openai/v1/audio/transcriptions"
-MODEL = "llama-3.3-70b-versatile"
-VISION_MODEL = "meta-llama/llama-4-scout-17b-16e-instruct"
+# OpenRouter auto-router: har so'rovda eng tez ishlayotgan bepul modelga yo'naltiradi.
+MODEL = "openrouter/free"
 TRANSCRIBE_MODEL = "whisper-large-v3-turbo"
 
 DEFAULT_NAME = "Jarvis"
@@ -75,15 +75,27 @@ TASK_EXTRACTION_PROMPT_TEMPLATE = (
 
 class AssistantClient:
     def __init__(self, timezone: str = "Asia/Tashkent"):
-        self.api_key = os.environ["GROQ_API_KEY"]
+        self.api_key = os.environ["OPENROUTER_API_KEY"]
         self.timezone = ZoneInfo(timezone)
         self._client = httpx.AsyncClient(
             timeout=30,
-            headers={"Authorization": f"Bearer {self.api_key}"},
+            headers={
+                "Authorization": f"Bearer {self.api_key}",
+                "X-Title": "Batyr Assistant Bot",
+            },
         )
+        # OpenRouter ovoz transkripsiyasini qo'llamaydi, shuning uchun Whisper uchun Groq saqlanadi.
+        self._groq_api_key = os.environ.get("GROQ_API_KEY")
+        self._groq_client: httpx.AsyncClient | None = None
+
+    @property
+    def transcription_available(self) -> bool:
+        return bool(self._groq_api_key)
 
     async def aclose(self):
         await self._client.aclose()
+        if self._groq_client is not None:
+            await self._groq_client.aclose()
 
     async def _complete(self, system: str, messages: list[dict], max_tokens: int = 600, model: str = MODEL) -> str:
         payload = {
@@ -91,7 +103,7 @@ class AssistantClient:
             "max_tokens": max_tokens,
             "messages": [{"role": "system", "content": system}] + messages,
         }
-        resp = await self._client.post(GROQ_URL, json=payload)
+        resp = await self._client.post(OPENROUTER_URL, json=payload)
         resp.raise_for_status()
         return resp.json()["choices"][0]["message"]["content"]
 
@@ -185,9 +197,18 @@ class AssistantClient:
             return []
 
     async def transcribe_audio(self, audio_bytes: bytes, filename: str = "voice.ogg") -> str:
+        if not self._groq_api_key:
+            raise RuntimeError(
+                "Voice transcription needs GROQ_API_KEY — OpenRouter doesn't offer audio transcription."
+            )
+        if self._groq_client is None:
+            self._groq_client = httpx.AsyncClient(
+                timeout=30,
+                headers={"Authorization": f"Bearer {self._groq_api_key}"},
+            )
         files = {"file": (filename, bytes(audio_bytes), "audio/ogg")}
         data = {"model": TRANSCRIBE_MODEL}
-        resp = await self._client.post(GROQ_TRANSCRIBE_URL, files=files, data=data)
+        resp = await self._groq_client.post(GROQ_TRANSCRIBE_URL, files=files, data=data)
         resp.raise_for_status()
         return resp.json()["text"]
 
@@ -207,7 +228,7 @@ class AssistantClient:
             }
         ]
         return await self._complete(
-            self.build_system_prompt(settings), messages, max_tokens=600, model=VISION_MODEL
+            self.build_system_prompt(settings), messages, max_tokens=600
         )
 
     async def compose_reminder(self, tasks: list[str], settings: dict[str, str] | None = None) -> str:

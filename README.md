@@ -1,6 +1,6 @@
 # Batyr Assistant Bot
 
-Telegram bot powered by Groq (free tier, open models like Llama 3.3). v1 features:
+Telegram bot powered by OpenRouter's free auto-router (`openrouter/free`) — it picks the fastest available free model (Llama, Qwen, Mistral, etc.) for every request, so the bot keeps working even when one model hits its rate limit. v1 features:
 - 1-on-1 chat with the assistant (remembers recent conversation)
 - Plain-language task capture ("eslab qol: ertaga 14:00 trening")
 - `/tasks` — list open tasks
@@ -13,10 +13,11 @@ Deferred to v2: Google Calendar sync, group-chat tracking.
 2. Send `/newbot`, follow the prompts (pick a name and a username ending in `bot`).
 3. Copy the token it gives you (looks like `123456:ABC-DEF...`).
 
-## 2. Get a free Groq API key
-1. Go to https://console.groq.com/keys
+## 2. Get a free OpenRouter API key
+1. Go to https://openrouter.ai/settings/keys
 2. Sign in (free, no credit card required), create an API key, copy it.
-3. Groq's free tier has rate limits but no cost — fine for a personal assistant bot.
+3. The bot uses the `openrouter/free` auto-router, which routes each request to the fastest available free model — no cost, and it fails over automatically when a model hits its rate limit.
+4. Optional: keep a Groq API key (https://console.groq.com/keys) as `GROQ_API_KEY` if you want **voice messages** — OpenRouter doesn't offer audio transcription, so the bot uses Groq's free Whisper for that.
 
 ## 3. Get a free persistent database (Turso)
 Render's free tier wipes the local filesystem on every deploy/restart, so the SQLite file alone won't survive. Turso gives a free, no-card-required cloud SQLite database that the bot syncs to.
@@ -30,7 +31,7 @@ If you skip this, the bot still works locally using a plain local SQLite file �
 
 ## 4. Configure
 1. Copy `.env.example` to `.env`.
-2. Fill in `TELEGRAM_BOT_TOKEN`, `GROQ_API_KEY`, `TURSO_DATABASE_URL`, `TURSO_AUTH_TOKEN`.
+2. Fill in `TELEGRAM_BOT_TOKEN`, `OPENROUTER_API_KEY`, `TURSO_DATABASE_URL`, `TURSO_AUTH_TOKEN`.
 3. Leave `OWNER_CHAT_ID` blank for now.
 
 ## 4. Run locally
@@ -50,7 +51,7 @@ Try:
 Recommended free option: **Fly.io** (covers one small always-on VM for free).
 1. Install the Fly CLI, `fly auth login`.
 2. From this folder: `fly launch` (choose no Postgres needed for v1 — SQLite file is enough).
-3. Set secrets: `fly secrets set TELEGRAM_BOT_TOKEN=... GROQ_API_KEY=... OWNER_CHAT_ID=...`
+3. Set secrets: `fly secrets set TELEGRAM_BOT_TOKEN=... OPENROUTER_API_KEY=... OWNER_CHAT_ID=...`
 4. `fly deploy`.
 
 Alternative: Railway works the same way (push this repo, set the same env vars in the dashboard, it auto-detects the `Procfile`) — note Railway no longer has a permanent free tier, only trial credit.

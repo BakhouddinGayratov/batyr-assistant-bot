@@ -446,6 +446,13 @@ async def handle_voice(update: Update, context: ContextTypes.DEFAULT_TYPE):
     claude: AssistantClient = context.application.bot_data["claude"]
     chat_id = update.effective_chat.id
 
+    if not claude.transcription_available:
+        await update.message.reply_text(
+            "Voice messages need GROQ_API_KEY — OpenRouter doesn't support audio transcription. "
+            "Add it to your .env to enable voice messages."
+        )
+        return
+
     try:
         voice = update.message.voice or update.message.audio
         file = await voice.get_file()
